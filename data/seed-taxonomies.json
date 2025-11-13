@@ -1784,5 +1784,283 @@
         "drug dependency"
       ]
     }
+  },
+  "verbs": [
+    {
+      "id": "apply",
+      "rel": "a1",
+      "pref_label": "Apply",
+      "definition": "Start or submit a new application for a service, permit or benefit.",
+      "synonyms": [
+        "lodge",
+        "submit",
+        "start application",
+        "make an application",
+        "claim",
+        "submit claim",
+        "lodge claim",
+        "claim benefit",
+        "register",
+        "sign up",
+        "create account",
+        "enrol",
+        "set up"
+      ]
+    },
+    {
+      "id": "renew",
+      "rel": "r1",
+      "pref_label": "Renew",
+      "definition": "Extend or refresh an existing licence, permit or registration.",
+      "synonyms": [
+        "extend",
+        "renewal",
+        "reapply",
+        "continue"
+      ]
+    },
+    {
+      "id": "update",
+      "rel": "u1",
+      "pref_label": "Update",
+      "definition": "Change details or circumstances already on record.",
+      "synonyms": [
+        "amend",
+        "change",
+        "change owner",
+        "correct",
+        "edit",
+        "get a replacement",
+        "manage",
+        "move ownership",
+        "reissue",
+        "replace",
+        "replace card",
+        "switch",
+        "transfer",
+        "transfer rego",
+        "update details"
+      ]
+    },
+    {
+      "id": "link",
+      "rel": "l1",
+      "pref_label": "Link",
+      "definition": "Connect or associate an account, profile or service with another system or organisation.",
+      "synonyms": [
+        "connect",
+        "associate",
+        "join",
+        "link service",
+        "link account",
+        "add service",
+        "add connection"
+      ]
+    },
+    {
+      "id": "check",
+      "rel": "ch1",
+      "pref_label": "Check",
+      "definition": "View, confirm or verify the status or details of something.",
+      "synonyms": [
+        "view",
+        "confirm",
+        "track",
+        "inspect",
+        "see",
+        "review",
+        "monitor",
+        "validate"
+      ]
+    },
+    {
+      "id": "pay",
+      "rel": "p1",
+      "pref_label": "Pay",
+      "definition": "Make a financial transaction, settlement or contribution for a product, service or fee.",
+      "synonyms": [
+        "make payment",
+        "pay fee",
+        "pay fine",
+        "contribute",
+        "settle account",
+        "remit",
+        "pay bill"
+      ]
+    },
+    {
+      "id": "get",
+      "rel": "g1",
+      "pref_label": "Get",
+      "definition": "Obtain or receive something such as a document, result or confirmation.",
+      "synonyms": [
+        "receive",
+        "download",
+        "access",
+        "collect",
+        "retrieve",
+        "obtain",
+        "print",
+        "get copy",
+        "get certificate"
+      ]
+    },
+    {
+      "id": "book",
+      "rel": "b1",
+      "pref_label": "Book",
+      "definition": "Reserve or schedule a time, place or resource for a service or activity.",
+      "synonyms": [
+        "reserve",
+        "schedule",
+        "arrange",
+        "make appointment",
+        "register booking",
+        "confirm appointment"
+      ]
+    },
+    {
+      "id": "cancel",
+      "rel": "c1",
+      "pref_label": "Cancel",
+      "definition": "Stop, withdraw or terminate an existing application, booking or service.",
+      "synonyms": [
+        "withdraw",
+        "stop",
+        "terminate",
+        "close",
+        "delete",
+        "undo",
+        "void",
+        "end",
+        "revoke"
+      ]
+    },
+    {
+      "id": "prove",
+      "rel": "pr1",
+      "pref_label": "Prove",
+      "definition": "Provide evidence, documents or information to confirm identity, eligibility or facts.",
+      "synonyms": [
+        "provide",
+        "proof",
+        "supply",
+        "verify",
+        "verify ID",
+        "authorise",
+        "authenticate",
+        "submit evidence",
+        "show ID",
+        "confirm identity",
+        "present proof"
+      ]
+    },
+    {
+      "id": "report",
+      "rel": "re1",
+      "pref_label": "Report",
+      "definition": "Notify, declare or raise an event, incident or change in circumstances.",
+      "synonyms": [
+        "notify",
+        "declare",
+        "tell us",
+        "appeal",
+        "dispute",
+        "complain",
+        "inform",
+        "raise issue",
+        "report incident"
+      ]
+    }
+  ],
+  "rels": {
+    "a1": {
+      "id": "a1",
+      "lex_ref": "apply",
+      "description": "Begins a new transaction or application.",
+      "schema_type": "ApplyAction",
+      "inverse_of": "c1"
+    },
+    "r1": {
+      "id": "r1",
+      "lex_ref": "renew",
+      "description": "Extends or refreshes an existing licence, permit or registration.",
+      "schema_type": "UpdateAction",
+      "inverse_of": "c1"
+    },
+    "u1": {
+      "id": "u1",
+      "lex_ref": "update",
+      "description": "Changes or edits details or circumstances already on record.",
+      "schema_type": "UpdateAction",
+      "inverse_of": "c1"
+    },
+    "l1": {
+      "id": "l1",
+      "lex_ref": "link",
+      "description": "Creates an association between an account, profile or service and another system.",
+      "schema_type": "AuthorizeAction",
+      "inverse_of": "c1"
+    },
+    "ch1": {
+      "id": "ch1",
+      "lex_ref": "check",
+      "description": "Views, checks or confirms information, eligibility or status.",
+      "schema_type": "CheckAction",
+      "inverse_of": "c1"
+    },
+    "p1": {
+      "id": "p1",
+      "lex_ref": "pay",
+      "description": "Makes a financial transaction or settlement for a service, product or fee.",
+      "schema_type": "PayAction",
+      "inverse_of": "c1"
+    },
+    "g1": {
+      "id": "g1",
+      "lex_ref": "get",
+      "description": "Obtains or accesses a result, document or confirmation.",
+      "schema_type": "ReceiveAction",
+      "inverse_of": "c1"
+    },
+    "b1": {
+      "id": "b1",
+      "lex_ref": "book",
+      "description": "Books or schedules a time, place or resource for a service or activity.",
+      "schema_type": "ReserveAction",
+      "inverse_of": "c1"
+    },
+    "c1": {
+      "id": "c1",
+      "lex_ref": "cancel",
+      "description": "Cancels, withdraws or terminates an existing application, booking or service.",
+      "schema_type": "CancelAction",
+      "inverse_of": [
+        "a1",
+        "r1",
+        "u1",
+        "l1",
+        "ch1",
+        "p1",
+        "g1",
+        "b1",
+        "pr1",
+        "re1"
+      ]
+    },
+    "pr1": {
+      "id": "pr1",
+      "lex_ref": "prove",
+      "description": "Provides evidence or documentation to prove identity, eligibility or facts.",
+      "schema_type": "CheckAction",
+      "inverse_of": "c1"
+    },
+    "re1": {
+      "id": "re1",
+      "lex_ref": "report",
+      "description": "Reports or declares an event, incident or change in circumstances.",
+      "schema_type": "InformAction",
+      "inverse_of": "c1"
+    }
   }
 }

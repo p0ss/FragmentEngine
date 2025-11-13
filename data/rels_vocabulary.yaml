@@ -1,0 +1,89 @@
+version: 1
+rels:
+
+  a1:
+    id: a1
+    lex_ref: apply
+    description: Begins a new transaction or application.
+    schema_type: ApplyAction
+    inverse_of: c1
+ 
+  r1:
+    id: r1
+    lex_ref: renew
+    description: Extends or refreshes an existing licence, permit or registration.
+    schema_type: UpdateAction
+    inverse_of: c1
+
+  u1:
+    id: u1
+    lex_ref: update
+    description: Changes or edits details or circumstances already on record.
+    schema_type: UpdateAction
+    inverse_of: c1
+
+  l1:
+    id: l1
+    lex_ref: link
+    description: Creates an association between an account, profile or service and another system.
+    schema_type: AuthorizeAction
+    inverse_of: c1
+
+  ch1:
+    id: ch1
+    lex_ref: check
+    description: Views, checks or confirms information, eligibility or status.
+    schema_type: CheckAction
+    inverse_of: c1
+
+  p1:
+    id: p1
+    lex_ref: pay
+    description: Makes a financial transaction or settlement for a service, product or fee.
+    schema_type: PayAction
+    inverse_of: c1
+
+  g1:
+    id: g1
+    lex_ref: get
+    description: Obtains or accesses a result, document or confirmation.
+    schema_type: ReceiveAction
+    inverse_of: c1
+
+  b1:
+    id: b1
+    lex_ref: book
+    description: Books or schedules a time, place or resource for a service or activity.
+    schema_type: ReserveAction
+    inverse_of: c1
+
+  c1:
+    id: c1
+    lex_ref: cancel
+    description: Cancels, withdraws or terminates an existing application, booking or service.
+    schema_type: CancelAction
+    inverse_of:
+    - a1
+    - r1
+    - u1
+    - l1
+    - ch1
+    - p1
+    - g1
+    - b1
+    - pr1
+    - re1
+
+  pr1:
+    id: pr1
+    lex_ref: prove
+    description: Provides evidence or documentation to prove identity, eligibility or facts.
+    schema_type: CheckAction
+    inverse_of: c1
+
+  re1:
+    id: re1
+    lex_ref: report
+    description: Reports or declares an event, incident or change in circumstances.
+    schema_type: InformAction
+    inverse_of: c1
