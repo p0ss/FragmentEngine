@@ -180,6 +180,56 @@ Key sections to tune:
 - Error categorization
 - Retry strategies
 
+## Google Search AI Summary Eval
+
+The `google-search-ai` registry mirrors the OpenAI evals format but scores captured Google Search AI Overview summaries against FragmentEngine facts.
+
+1. **Bootstrap facts** (optional but recommended):
+   ```bash
+   cd evals
+   npm run eval:google-ai:facts
+   ```
+   This hits your local Typesense instance, pulls the top fragments for each search term, and writes candidate fact snippets to `registry/data/google-search-ai/generated/<slug>.json`.
+
+2. **Capture Google AI outputs**: run the search term in Google, copy the AI Overview text, and paste it into `evals/google-ai-captures/<capture_slug>.txt`. The slug defaults to the dashed search term but can be overridden per sample via `capture_slug`.
+
+3. **Run the eval**:
+   ```bash
+   cd evals
+   npm run eval:google-ai
+   ```
+   The runner (`run-google-ai.js`) loads the captured text, checks that every `expected_fact` is mentioned, and ensures no `disallowed_fact` appears. Metrics include coverage and hallucination hits, with JSON output under `evals/results/`.
+
+4. **Automate captures (optional but recommended)**:
+   ```bash
+   cd evals
+   # Single query
+   npm run capture:google-ai -- --query "jobseeker payment" --screenshot
+
+   # Batch mode from newline-delimited file
+   npm run capture:google-ai -- --list queries.txt --headless
+   ```
+   `scripts/capture-google-ai.js` drives a real Chrome instance via Puppeteer, dismisses consent prompts, and saves both a `.txt` summary and a `.json` metadata file to `google-ai-captures/`. Set `CHROME_PATH=/path/to/Google\ Chrome` if you want to use your installed browser instead of Puppeteer’s bundled Chromium. Add `--screenshot` to archive a PNG for manual review. The capture script deliberately defaults to non-headless mode to reduce the chance of triggering Google’s bot wall; headless mode is available via `--headless` for CI.
+
+### Sample format (`registry/data/google-search-ai/samples.jsonl`)
+
+```jsonl
+{
+  "search_term": "paid parental leave australia",
+  "capture_slug": "paid-parental-leave",
+  "ideal_summary": "Paid Parental Leave gives eligible parents up to 18 weeks of Parental Leave Pay.",
+  "expected_facts": [
+    {"id": "ppl-duration", "fact": "Paid Parental Leave provides up to 18 weeks of Parental Leave Pay", "match_phrases": ["18 weeks"]}
+  ],
+  "disallowed_facts": [
+    {"id": "ppl-12-months", "fact": "Paid Parental Leave requires 12 months of continuous employment"}
+  ],
+  "gold_references": [{"title": "Services Australia", "url": "https://www.servicesaustralia.gov.au/paid-parental-leave-scheme"}]
+}
+```
+
+`expected_facts` and `disallowed_facts` accept either plain strings or structured objects with `match_phrases`/`aliases`/`pattern` to control matching. Each sample can also point to fragment IDs for traceability.
+
 ## Environment Variables
 
 ```bash

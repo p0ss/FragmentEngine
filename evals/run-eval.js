@@ -41,8 +41,50 @@ async function loadSamples(evalName) {
     .map(line => JSON.parse(line));
 }
 
+function normalizeText(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function factMatches(outputText, factEntry) {
+  if (!outputText || !factEntry) return false;
+
+  const normalizedOutput = normalizeText(outputText);
+  const candidates = [];
+
+  if (typeof factEntry === 'string') {
+    candidates.push(factEntry);
+  } else {
+    if (factEntry.fact) candidates.push(factEntry.fact);
+    if (Array.isArray(factEntry.match_phrases)) {
+      candidates.push(...factEntry.match_phrases);
+    }
+    if (Array.isArray(factEntry.aliases)) {
+      candidates.push(...factEntry.aliases);
+    }
+
+    if (factEntry.pattern) {
+      try {
+        const regex = new RegExp(factEntry.pattern, 'i');
+        if (regex.test(outputText)) {
+          return true;
+        }
+      } catch (error) {
+        console.warn('Invalid fact pattern:', factEntry.pattern, error.message);
+      }
+    }
+  }
+
+  return candidates.some(candidate => {
+    const normalizedCandidate = normalizeText(candidate);
+    return normalizedCandidate && normalizedOutput.includes(normalizedCandidate);
+  });
+}
+
 // Score a single result against ideal
-function scoreResult(result, ideal, evalType) {
+function scoreResult(result, ideal, evalType, sample = {}) {
   const score = {
     correct: false,
     partial: false,
@@ -94,6 +136,27 @@ function scoreResult(result, ideal, evalType) {
                         output.includes("might mean");
       }
       break;
+
+    case 'ai_summary': {
+      const expectedFacts = sample.expected_facts || [];
+      const disallowedFacts = sample.disallowed_facts || [];
+      const missingExpected = expectedFacts.filter(fact => !factMatches(result.responder_output, fact));
+      const disallowedHits = disallowedFacts.filter(fact => factMatches(result.responder_output, fact));
+      const totalExpected = expectedFacts.length;
+      const coverage = totalExpected > 0
+        ? (totalExpected - missingExpected.length) / totalExpected
+        : 1;
+
+      score.correct = missingExpected.length === 0 && disallowedHits.length === 0;
+      score.partial = !score.correct && missingExpected.length < totalExpected && disallowedHits.length === 0;
+      score.details = {
+        expected_total: totalExpected,
+        coverage: Number(coverage.toFixed(2)),
+        missing_expected: missingExpected.map(fact => fact.id || fact.fact || fact),
+        disallowed_hits: disallowedHits.map(fact => fact.id || fact.fact || fact)
+      };
+      break;
+    }
   }
 
   return score;
@@ -140,7 +203,8 @@ async function runMode(samples, mode) {
       }
 
       // Score the result
-      const score = scoreResult(result, sample.ideal, sample.eval_type);
+      const idealAnswer = sample.ideal ?? sample.ideal_summary ?? null;
+      const score = scoreResult(result, idealAnswer, sample.eval_type, sample);
 
       result.sample_id = i;
       result.user_query = userQuery;
@@ -293,4 +357,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, loadSamples, scoreResult };
+module.exports = { main, loadSamples, scoreResult, factMatches };
