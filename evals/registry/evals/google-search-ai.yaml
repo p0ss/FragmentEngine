@@ -7,4 +7,4 @@ google-search-ai.dev.v0:
   class: GoogleAISummaryEval
   args:
     samples_jsonl: google-search-ai/samples.jsonl
-    capture_dir: ../google-ai-captures
+    capture_dir: ../google-search/captures

@@ -10,13 +10,14 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { loadSamples, scoreResult } = require('./run-eval');
+const pathToRoot = path.resolve(__dirname, '..');
+const { loadSamples, scoreResult } = require('../run-eval');
 
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {
     evalName: 'google-search-ai',
-    captureDir: path.join(__dirname, 'google-ai-captures'),
+    captureDir: path.join(__dirname, 'captures'),
     outputDir: path.join(__dirname, 'results')
   };
 
@@ -58,7 +59,9 @@ async function loadCapturedSummary(sample, captureDir) {
   const candidateFiles = [];
 
   if (sample.captured_summary_file) {
-    candidateFiles.push(path.resolve(__dirname, sample.captured_summary_file));
+    const relPath = sample.captured_summary_file;
+    candidateFiles.push(path.resolve(pathToRoot, relPath));
+    candidateFiles.push(path.resolve(__dirname, relPath));
   }
 
   if (captureDir) {

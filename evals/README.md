@@ -186,30 +186,31 @@ The `google-search-ai` registry mirrors the OpenAI evals format but scores captu
 
 1. **Bootstrap facts** (optional but recommended):
    ```bash
-   cd evals
+   cd evals/google-search
+   npm install                     # pulls in Puppeteer/Chrome deps (one-time)
    npm run eval:google-ai:facts
    ```
    This hits your local Typesense instance, pulls the top fragments for each search term, and writes candidate fact snippets to `registry/data/google-search-ai/generated/<slug>.json`.
 
-2. **Capture Google AI outputs**: run the search term in Google, copy the AI Overview text, and paste it into `evals/google-ai-captures/<capture_slug>.txt`. The slug defaults to the dashed search term but can be overridden per sample via `capture_slug`.
+2. **Capture Google AI outputs**: run the search term in Google, copy the AI Overview text, and paste it into `evals/google-search/captures/<capture_slug>.txt`. The slug defaults to the dashed search term but can be overridden per sample via `capture_slug`.
 
 3. **Run the eval**:
    ```bash
-   cd evals
+   cd evals/google-search
    npm run eval:google-ai
    ```
-   The runner (`run-google-ai.js`) loads the captured text, checks that every `expected_fact` is mentioned, and ensures no `disallowed_fact` appears. Metrics include coverage and hallucination hits, with JSON output under `evals/results/`.
+   The runner (`run-google-ai.js`) loads the captured text, checks that every `expected_fact` is mentioned, and ensures no `disallowed_fact` appears. Metrics include coverage and hallucination hits, with JSON output under `evals/google-search/results/`.
 
 4. **Automate captures (optional but recommended)**:
    ```bash
-   cd evals
+   cd evals/google-search
    # Single query
    npm run capture:google-ai -- --query "jobseeker payment" --screenshot
 
    # Batch mode from newline-delimited file
    npm run capture:google-ai -- --list queries.txt --headless
    ```
-   `scripts/capture-google-ai.js` drives a real Chrome instance via Puppeteer, dismisses consent prompts, and saves both a `.txt` summary and a `.json` metadata file to `google-ai-captures/`. Set `CHROME_PATH=/path/to/Google\ Chrome` if you want to use your installed browser instead of Puppeteer’s bundled Chromium. Add `--screenshot` to archive a PNG for manual review. The capture script deliberately defaults to non-headless mode to reduce the chance of triggering Google’s bot wall; headless mode is available via `--headless` for CI.
+   `evals/google-search/scripts/capture-google-ai.js` drives a real Chrome instance via Puppeteer, dismisses consent prompts, and saves both a `.txt` summary and a `.json` metadata file to `captures/`. Set `CHROME_PATH=/path/to/Google\ Chrome` if you want to use your installed browser instead of Puppeteer’s bundled Chromium. Add `--screenshot` to archive a PNG for manual review. The capture script deliberately defaults to non-headless mode to reduce the chance of triggering Google’s bot wall; headless mode is available via `--headless` for CI.
 
 ### Sample format (`registry/data/google-search-ai/samples.jsonl`)
 

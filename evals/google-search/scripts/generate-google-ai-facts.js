@@ -7,7 +7,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { loadSamples } = require('../run-eval');
+const { loadSamples } = require('../../run-eval');
 
 const TYPESENSE_HOST = process.env.TYPESENSE_HOST || 'localhost';
 const TYPESENSE_PORT = process.env.TYPESENSE_PORT || '8108';
@@ -106,7 +106,7 @@ function extractFactsFromFragment(fragment, maxFacts = 5) {
 
 async function generateFacts() {
   const samples = await loadSamples('google-search-ai');
-  const generatedDir = path.join(__dirname, '..', 'registry', 'data', 'google-search-ai', 'generated');
+  const generatedDir = path.join(__dirname, '..', '..', 'registry', 'data', 'google-search-ai', 'generated');
   await fs.mkdir(generatedDir, { recursive: true });
 
   for (const sample of samples) {

@@ -1,0 +1,15 @@
+{
+  "name": "fragmentengine-google-search-evals",
+  "version": "1.0.0",
+  "description": "Google Search AI Overview capture + eval tooling for FragmentEngine",
+  "private": true,
+  "main": "run-google-ai.js",
+  "scripts": {
+    "eval:google-ai": "node run-google-ai.js",
+    "eval:google-ai:facts": "node scripts/generate-google-ai-facts.js",
+    "capture:google-ai": "node scripts/capture-google-ai.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24.14.0"
+  }
+}

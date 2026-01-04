@@ -14,7 +14,7 @@ function parseArgs() {
   const opts = {
     query: null,
     listFile: null,
-    outputDir: path.join(__dirname, '..', 'google-ai-captures'),
+    outputDir: path.join(__dirname, '..', 'captures'),
     headless: false,
     waitMs: 4500,
     screenshot: false,

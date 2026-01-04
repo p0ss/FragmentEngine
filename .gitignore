@@ -4,6 +4,8 @@ node_modules/
 .env
 .DS_Store
 typesense-data/
+evals/results/
+evals/google-search/results/
 *.pid
 *.seed
 *.pid.lock

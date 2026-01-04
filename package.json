@@ -1,5 +1,6 @@
 {
-  "dependencies": {
-    "puppeteer": "^24.14.0"
-  }
+  "name": "fragmentengine",
+  "private": true,
+  "description": "Meta package for FragmentEngine; install dependencies within subdirectories (api, scraper, evals, etc.).",
+  "license": "MIT"
 }

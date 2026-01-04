@@ -44,6 +44,9 @@ echo OLLAMA_URL=http://172.17.0.1:11434 >> .env  # host.docker.internal on Mac/W
 ```bash
 chmod +x deploy.sh
 ./deploy.sh --crawl   # builds images, boots Typesense + API + MCP, runs the unified scraper once
+# Optional: pull in eval tooling (pick what you need)
+./deploy.sh --with-evals        # agentic eval harness (API-only, lightweight)
+./deploy.sh --with-seo-evals    # Google Search capture/SEO tooling (Puppeteer + Chromium)
 ```
 
 - Re-run `./deploy.sh` after tweaking `.env`
@@ -108,6 +111,8 @@ What you get:
 If the UI cannot reach the API, check Docker logs for `api`, ensure ports `3000/8108/8081` are open locally, and re-run the health commands from step 2.
 
 ### 6. Run the agentic evals
+
+Enable just the tooling you need: `./deploy.sh --with-evals` (or set `ENABLE_AI_EVALS_PIPELINE=true`) prepares the adversarial agentic harness, while `./deploy.sh --with-seo-evals` (or `ENABLE_SEO_EVALS_PIPELINE=true`) installs the Google Search capture/SEO stack.
 
 ```bash
 cd evals
@@ -330,6 +335,17 @@ curl http://localhost:8108/metrics.json
 - Check robots.txt compliance
 - Verify selectors in `config/scraper-config.js`
 - Check crawl depth settings
+
+## Documentation Map
+
+- [Scraper Architecture & Operations](docs/scraper-architecture.md)
+- [Typesense Schema Reference](docs/typesense-schema-reference.md)
+- [API Surface Overview](docs/api-overview.md)
+- [Agentic Evals & MCP Integration](docs/evals-and-mcp.md)
+- [Fragment Lifecycle](docs/fragment-lifecycle.md)
+- [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)
+- [Adversarial Eval Summary](docs/ADVERSARIAL_EVALS_SUMMARY.md)
+- [Project Plan: Tagging Improvements](docs/PROJECT_PLAN_TAGGING_IMPROVEMENTS.md)
 
 ## License
 

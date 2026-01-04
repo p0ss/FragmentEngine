@@ -14,6 +14,42 @@ set -a
 . ./.env
 set +a
 
+# Track optional flags
+RUN_CRAWL=false
+RUN_AI_EVALS=${ENABLE_AI_EVALS_PIPELINE:-${ENABLE_EVALS_PIPELINE:-false}}
+RUN_SEO_EVALS=${ENABLE_SEO_EVALS_PIPELINE:-false}
+
+for arg in "$@"; do
+    case "$arg" in
+        --crawl)
+            RUN_CRAWL=true
+            ;;
+        --with-evals|--with-ai-evals)
+            RUN_AI_EVALS=true
+            ;;
+        --with-seo-evals)
+            RUN_SEO_EVALS=true
+            ;;
+        --with-all-evals)
+            RUN_AI_EVALS=true
+            RUN_SEO_EVALS=true
+            ;;
+        --help|-h)
+            echo "Usage: ./deploy.sh [--crawl] [--with-evals] [--with-seo-evals] [--with-all-evals]"
+            echo "  --crawl            Run the unified scraper once after services start"
+            echo "  --with-evals       Install lightweight AI eval deps (or set ENABLE_AI_EVALS_PIPELINE=true)"
+            echo "  --with-seo-evals   Install SEO/Google capture deps (or set ENABLE_SEO_EVALS_PIPELINE=true)"
+            echo "  --with-all-evals   Convenience flag to install both"
+            exit 0
+            ;;
+        *)
+            echo "❌ Unknown option: $arg"
+            echo "Usage: ./deploy.sh [--crawl] [--with-evals] [--with-seo-evals] [--with-all-evals]"
+            exit 1
+            ;;
+    esac
+done
+
 # Build images
 echo "🔨 Building Docker images..."
 docker-compose build
@@ -44,8 +80,40 @@ done
 
 echo "✅ Typesense is ready"
 
+# Optionally prepare AI eval dependencies
+if [ "$RUN_AI_EVALS" = "true" ]; then
+    echo "🧪 Preparing AI eval (agentic) dependencies..."
+    if [ -d evals/node_modules ]; then
+        echo "  ✅ evals/node_modules already exists - skipping npm install"
+    else
+        (cd evals && npm install)
+        if [ $? -ne 0 ]; then
+            echo "❌ Failed to install AI eval dependencies"
+            exit 1
+        fi
+    fi
+else
+    echo "🧪 AI eval pipeline skipped (enable with --with-evals or set ENABLE_AI_EVALS_PIPELINE=true)"
+fi
+
+# Optionally prepare SEO/Google capture dependencies
+if [ "$RUN_SEO_EVALS" = "true" ]; then
+    echo "🌐 Preparing SEO / Google Search capture dependencies..."
+    if [ -d evals/google-search/node_modules ]; then
+        echo "  ✅ evals/google-search/node_modules already exists - skipping npm install"
+    else
+        (cd evals/google-search && npm install)
+        if [ $? -ne 0 ]; then
+            echo "❌ Failed to install SEO eval dependencies"
+            exit 1
+        fi
+    fi
+else
+    echo "🌐 SEO / Google Search eval pipeline skipped (enable with --with-seo-evals or set ENABLE_SEO_EVALS_PIPELINE=true)"
+fi
+
 # Check if we should run initial crawl
-if [ "$1" == "--crawl" ]; then
+if [ "$RUN_CRAWL" = "true" ]; then
     echo "🕷️ Starting initial crawl..."
     docker-compose run --rm scraper
 fi

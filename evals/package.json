@@ -8,10 +8,7 @@
     "eval:baseline": "node run-eval.js government-services-grounding --mode=baseline",
     "eval:tools": "node run-eval.js government-services-grounding --mode=tools",
     "eval:adversarial": "node run-eval.js government-services-grounding --mode=adversarial",
-    "eval:all": "node run-eval.js government-services-grounding --mode=all",
-    "eval:google-ai": "node run-google-ai.js",
-    "eval:google-ai:facts": "node scripts/generate-google-ai-facts.js",
-    "capture:google-ai": "node scripts/capture-google-ai.js"
+    "eval:all": "node run-eval.js government-services-grounding --mode=all"
   },
   "keywords": ["evals", "llm", "adversarial", "grounding", "mcp"],
   "author": "",
