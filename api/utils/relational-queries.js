@@ -1,7 +1,26 @@
 // api/utils/relational-queries.js
 // Relational query helpers for fragment -> page -> life event -> graph relationships
 
-const { loadLifeEventsGraph } = require('../../scraper/taxonomies');
+const fs = require('fs');
+const path = require('path');
+
+const taxonomyModulePath = (() => {
+  const candidates = [
+    process.env.SCRAPER_TAXONOMIES_PATH,
+    path.join(__dirname, '..', '..', 'scraper', 'taxonomies'),
+    path.join(__dirname, '..', 'scraper', 'taxonomies'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) || fs.existsSync(`${candidate}.js`)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+})();
+
+const { loadLifeEventsGraph } = require(taxonomyModulePath);
 
 class RelationalQueries {
   constructor(typesenseClient) {

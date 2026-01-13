@@ -133,6 +133,7 @@ services:
       - MCP_SERVER_HOST=mcp-server
     volumes:
       - ./api:/app
+      - ./scraper:/app/scraper
       - /app/node_modules # This preserves node_modules from the image
       - ./config:/config # Mount config at root level
 
