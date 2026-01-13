@@ -222,7 +222,12 @@
                 const { useState, useEffect, useRef, useCallback } = React;
 
             // API Configuration
-            const API_BASE_URL = "http://localhost:3000";
+            const API_BASE_URL = location.protocol.startsWith("http")
+                ? location.origin
+                : "http://localhost:3000";
+            const MCP_BASE_URL = location.protocol.startsWith("http")
+                ? `${location.protocol}//${location.hostname}:8081`
+                : "http://localhost:8081";
             const API_ENDPOINTS = {
                 search: `${API_BASE_URL}/api/fragments/search`,
                 facets: `${API_BASE_URL}/api/fragments/facets`,
@@ -1021,7 +1026,7 @@ Return ONLY a JSON array of the indices in the optimal reading order, like: [2, 
                     setLoadingGuidedOptions(true);
                     try {
                         // Use MCP server directly to analyze filter combinations
-                        const response = await fetch('http://localhost:8081/analyze-combinations', {
+                        const response = await fetch(`${MCP_BASE_URL}/analyze-combinations`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
