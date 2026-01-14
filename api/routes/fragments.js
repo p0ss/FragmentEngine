@@ -28,19 +28,30 @@ router.get('/search', async (req, res) => {
     // Life event filtering now requires relational lookup
     let pageUrls = [];
     if (life_event) {
-      // First get pages with this life event
+      // First get pages with this life event (Typesense max per_page is 250)
       const rq = new RelationalQueries(req.app.locals.typesense);
-      const pageResult = await req.app.locals.typesense
-        .collections('content_pages')
-        .documents()
-        .search({
-          q: '*',
-          filter_by: `life_events:=[${quote(life_event)}]`,
-          include_fields: 'url',
-          per_page: 500 // Get many pages for comprehensive results
-        });
-      
-      pageUrls = pageResult.hits.map(h => h.document.url);
+      const perPage = 250;
+      let page = 1;
+      let found = 0;
+      const allHits = [];
+
+      do {
+        const pageResult = await req.app.locals.typesense
+          .collections('content_pages')
+          .documents()
+          .search({
+            q: '*',
+            filter_by: `life_events:=[${quote(life_event)}]`,
+            include_fields: 'url',
+            per_page: perPage,
+            page
+          });
+        found = pageResult.found || 0;
+        allHits.push(...pageResult.hits);
+        page += 1;
+      } while (allHits.length < found && page <= 100);
+
+      pageUrls = allHits.map(h => h.document.url);
       if (pageUrls.length > 0) {
         filterBy.push(`page_url:[${pageUrls.map(url => quote(url)).join(',')}]`);
       } else {

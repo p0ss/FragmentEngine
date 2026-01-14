@@ -19,7 +19,7 @@
 <body>
   <h2>Pages Analyse (Browser → Typesense direct)</h2>
   <div class="row">
-    <input id="ts_base" placeholder="Typesense base (http://localhost:8108)" value="http://localhost:8108" />
+    <input id="ts_base" placeholder="Typesense base (http://localhost:8108)" />
     <input id="ts_key" placeholder="Typesense API key" />
     <input id="site_a" placeholder="Site A (e.g., servicesaustralia.gov.au)" value="servicesaustralia.gov.au" />
     <input id="site_b" placeholder="Site B (e.g., my.gov.au)" value="my.gov.au" />
@@ -44,7 +44,12 @@
   <div id="results"></div>
 
   <script>
-    function tsBase() { return (document.getElementById('ts_base').value || 'http://localhost:8108').trim(); }
+    const defaultTypesenseBase = location.protocol.startsWith('http')
+      ? `${location.protocol}//${location.hostname}:8108`
+      : 'http://localhost:8108';
+    const tsBaseInput = document.getElementById('ts_base');
+    if (!tsBaseInput.value) tsBaseInput.value = defaultTypesenseBase;
+    function tsBase() { return (tsBaseInput.value || defaultTypesenseBase).trim(); }
     function tsKey() { return (document.getElementById('ts_key').value || '').trim(); }
     async function tsSearch(collection, params) {
       const res = await fetch(`${tsBase()}/collections/${encodeURIComponent(collection)}/documents/search`, {
