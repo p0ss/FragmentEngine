@@ -131,6 +131,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - MCP_SERVER_HOST=mcp-server
+      - AWS_REGION=${AWS_REGION:-ap-southeast-2}
+      - ENABLE_BEDROCK=${ENABLE_BEDROCK:-true}
+      - BEDROCK_MODELS=${BEDROCK_MODELS:-}
     volumes:
       - ./api:/app
       - ./scraper:/app/scraper

@@ -3,6 +3,12 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 const { MCPClient } = require('../utils/mcp-client');
+const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
+
+// Initialize Bedrock client - uses IAM instance role automatically
+const bedrockClient = new BedrockRuntimeClient({
+  region: process.env.AWS_REGION || 'ap-southeast-2'
+});
 
 // GET /api/llm/models
 router.get('/models', async (req, res) => {
@@ -78,9 +84,9 @@ router.get('/models', async (req, res) => {
 
       // Optional: add OpenAI defaults if API key present
       if (process.env.OPENAI_API_KEY) {
-        ['gpt-4o-mini', 'gpt-4o'].forEach(n => models.push({ 
-          value: `openai:${n}`, 
-          label: `OpenAI • ${n}`, 
+        ['gpt-4o-mini', 'gpt-4o'].forEach(n => models.push({
+          value: `openai:${n}`,
+          label: `OpenAI • ${n}`,
           provider: 'openai',
           status: 'available'
         }));
@@ -88,17 +94,37 @@ router.get('/models', async (req, res) => {
       } else {
         status.openai.error = 'API key not configured';
       }
-    }
 
-    // Add unavailable models with status indicators for transparency
-    if (!status.ollama.available && !liteUrl) {
-      models.push({ 
-        value: 'ollama:gemma3:27b', 
-        label: 'Ollama • gemma3:27b (unavailable)', 
-        provider: 'ollama',
-        status: 'unavailable',
-        error: status.ollama.error
-      });
+      // AWS Bedrock models (uses IAM role - no API key needed)
+      const enableBedrock = process.env.ENABLE_BEDROCK !== 'false';
+      if (enableBedrock) {
+        // Default models - can be customized via BEDROCK_MODELS env var
+        // Format: "modelId:Label,modelId2:Label2"
+        const defaultModels = [
+          { id: 'mistral.mistral-large-2402-v1:0', label: 'Mistral Large' },
+          { id: 'anthropic.claude-sonnet-4-5-20250929-v1:0', label: 'Claude 4.5 Sonnet' },
+          { id: 'nvidia-nemotron-super-49b-nim', label: 'NVIDIA Nemotron 49B' },
+          // Fallback models that work with on-demand throughput
+          { id: 'anthropic.claude-3-sonnet-20240229-v1:0', label: 'Claude 3 Sonnet' },
+          { id: 'anthropic.claude-3-haiku-20240307-v1:0', label: 'Claude 3 Haiku' },
+        ];
+
+        const customModels = process.env.BEDROCK_MODELS;
+        const bedrockModels = customModels
+          ? customModels.split(',').map(m => {
+              const [id, label] = m.split(':').map(s => s.trim());
+              return { id, label: label || id };
+            })
+          : defaultModels;
+
+        bedrockModels.forEach(m => models.push({
+          value: `bedrock:${m.id}`,
+          label: `Bedrock • ${m.label}`,
+          provider: 'bedrock',
+          status: 'available'
+        }));
+        status.bedrock = { available: true, error: null };
+      }
     }
 
     // Fallback if no models at all
@@ -111,13 +137,9 @@ router.get('/models', async (req, res) => {
       });
     }
 
-    return res.json({ 
-      models, 
-      status,
-      recommendations: {
-        ollama: !status.ollama.available && !liteUrl ? 'Run: ollama serve' : null,
-        litellm: !liteUrl ? 'Set LITELLM_URL environment variable to enable unified model access' : null
-      }
+    return res.json({
+      models,
+      status
     });
   } catch (error) {
     console.error('Models list error:', error);
@@ -255,7 +277,7 @@ router.post('/chat', async (req, res) => {
     if (provider === 'openai') {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) {
-        return res.status(503).json({ 
+        return res.status(503).json({
           error: 'OpenAI API key not configured',
           provider: 'openai',
           suggestion: 'Set OPENAI_API_KEY environment variable'
@@ -284,7 +306,7 @@ router.post('/chat', async (req, res) => {
           const text = await resp.text();
           let errorMsg = `OpenAI error (${resp.status}): ${text}`;
           let suggestion = null;
-          
+
           if (resp.status === 401) {
             errorMsg = 'OpenAI authentication failed. Check your API key.';
             suggestion = 'Verify OPENAI_API_KEY is correct';
@@ -295,8 +317,8 @@ router.post('/chat', async (req, res) => {
             errorMsg = 'OpenAI rate limit exceeded.';
             suggestion = 'Wait a moment before trying again';
           }
-          
-          return res.status(resp.status).json({ 
+
+          return res.status(resp.status).json({
             error: errorMsg,
             provider: 'openai',
             model: providerModel,
@@ -311,6 +333,86 @@ router.post('/chat', async (req, res) => {
           error: `OpenAI request failed: ${error.message}`,
           provider: 'openai',
           model: providerModel
+        });
+      }
+    }
+
+    if (provider === 'bedrock') {
+      try {
+        let payload;
+        let parseResponse;
+        const systemPrompt = 'You are a helpful Australian government services assistant.';
+
+        // Different payload formats for different model providers
+        if (providerModel.includes('anthropic')) {
+          // Anthropic Claude models
+          payload = {
+            anthropic_version: 'bedrock-2023-05-31',
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7
+          };
+          parseResponse = (body) => body.content?.[0]?.text || '';
+        } else if (providerModel.includes('mistral')) {
+          // Mistral models
+          payload = {
+            prompt: `<s>[INST] ${systemPrompt}\n\n${prompt} [/INST]`,
+            max_tokens: 4096,
+            temperature: 0.7
+          };
+          parseResponse = (body) => body.outputs?.[0]?.text || '';
+        } else if (providerModel.includes('meta') || providerModel.includes('llama')) {
+          // Meta Llama models
+          payload = {
+            prompt: `<s>[INST] <<SYS>>\n${systemPrompt}\n<</SYS>>\n\n${prompt} [/INST]`,
+            max_gen_len: 4096,
+            temperature: 0.7
+          };
+          parseResponse = (body) => body.generation || '';
+        } else {
+          // Default/generic format (works for some models)
+          payload = {
+            inputText: `${systemPrompt}\n\nUser: ${prompt}\n\nAssistant:`,
+            textGenerationConfig: {
+              maxTokenCount: 4096,
+              temperature: 0.7
+            }
+          };
+          parseResponse = (body) => body.results?.[0]?.outputText || body.generation || JSON.stringify(body);
+        }
+
+        const command = new InvokeModelCommand({
+          modelId: providerModel,
+          contentType: 'application/json',
+          accept: 'application/json',
+          body: JSON.stringify(payload)
+        });
+
+        const response = await bedrockClient.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const content = parseResponse(responseBody);
+        return res.json({ response: content });
+      } catch (error) {
+        let errorMsg = `Bedrock error: ${error.message}`;
+        let suggestion = null;
+
+        if (error.name === 'AccessDeniedException') {
+          errorMsg = 'Bedrock access denied. Check IAM permissions.';
+          suggestion = 'Ensure the instance role has bedrock:InvokeModel permission';
+        } else if (error.name === 'ValidationException') {
+          errorMsg = `Invalid model or request: ${error.message}`;
+          suggestion = 'Check model ID is correct and available in your region';
+        } else if (error.name === 'ResourceNotFoundException') {
+          errorMsg = `Model "${providerModel}" not found in Bedrock.`;
+          suggestion = 'Enable the model in AWS Bedrock console for your region';
+        }
+
+        return res.status(500).json({
+          error: errorMsg,
+          provider: 'bedrock',
+          model: providerModel,
+          suggestion: suggestion
         });
       }
     }
@@ -643,6 +745,82 @@ async function handleChatRequest(req, res) {
         error: `OpenAI request failed: ${error.message}`,
         provider: 'openai',
         model: providerModel
+      });
+    }
+  }
+
+  if (provider === 'bedrock') {
+    try {
+      let payload;
+      let parseResponse;
+      const systemPrompt = 'You are a helpful Australian government services assistant.';
+
+      // Different payload formats for different model providers
+      if (providerModel.includes('anthropic')) {
+        payload = {
+          anthropic_version: 'bedrock-2023-05-31',
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7
+        };
+        parseResponse = (body) => body.content?.[0]?.text || '';
+      } else if (providerModel.includes('mistral')) {
+        payload = {
+          prompt: `<s>[INST] ${systemPrompt}\n\n${prompt} [/INST]`,
+          max_tokens: 4096,
+          temperature: 0.7
+        };
+        parseResponse = (body) => body.outputs?.[0]?.text || '';
+      } else if (providerModel.includes('meta') || providerModel.includes('llama')) {
+        payload = {
+          prompt: `<s>[INST] <<SYS>>\n${systemPrompt}\n<</SYS>>\n\n${prompt} [/INST]`,
+          max_gen_len: 4096,
+          temperature: 0.7
+        };
+        parseResponse = (body) => body.generation || '';
+      } else {
+        payload = {
+          inputText: `${systemPrompt}\n\nUser: ${prompt}\n\nAssistant:`,
+          textGenerationConfig: {
+            maxTokenCount: 4096,
+            temperature: 0.7
+          }
+        };
+        parseResponse = (body) => body.results?.[0]?.outputText || body.generation || JSON.stringify(body);
+      }
+
+      const command = new InvokeModelCommand({
+        modelId: providerModel,
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: JSON.stringify(payload)
+      });
+
+      const response = await bedrockClient.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      const content = parseResponse(responseBody);
+      return res.json({ response: content });
+    } catch (error) {
+      let errorMsg = `Bedrock error: ${error.message}`;
+      let suggestion = null;
+
+      if (error.name === 'AccessDeniedException') {
+        errorMsg = 'Bedrock access denied. Check IAM permissions.';
+        suggestion = 'Ensure the instance role has bedrock:InvokeModel permission';
+      } else if (error.name === 'ValidationException') {
+        errorMsg = `Invalid model or request: ${error.message}`;
+        suggestion = 'Check model ID is correct and available in your region';
+      } else if (error.name === 'ResourceNotFoundException') {
+        errorMsg = `Model "${providerModel}" not found in Bedrock.`;
+        suggestion = 'Enable the model in AWS Bedrock console for your region';
+      }
+
+      return res.status(500).json({
+        error: errorMsg,
+        provider: 'bedrock',
+        model: providerModel,
+        suggestion: suggestion
       });
     }
   }

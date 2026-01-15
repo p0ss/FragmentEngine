@@ -380,8 +380,8 @@
                     },
                 ]);
                 const [chatInput, setChatInput] = useState("");
-                const [ollamaModel, setOllamaModel] = useState("gemma3:27b"); // Default model (kept for backward compat)
-                const [llmModel, setLlmModel] = useState("ollama:gemma3:27b");
+                const [ollamaModel, setOllamaModel] = useState("gemma3:27b"); // Legacy - kept for backward compat
+                const [llmModel, setLlmModel] = useState("bedrock:mistral.mistral-large-2402-v1:0");
                 const [availableModels, setAvailableModels] = useState([]);
 
                 // Load available LLM models from API
@@ -517,15 +517,15 @@
                     } catch (e) {
                         console.warn("Falling back to default model list:", e.message);
                         const fallback = [
-                            { 
-                                value: "ollama:gemma3:27b", 
-                                label: "Ollama • gemma3:27b (connection error)", 
-                                provider: "ollama",
-                                status: "unavailable"
+                            {
+                                value: "bedrock:anthropic.claude-3-sonnet-20240229-v1:0",
+                                label: "Bedrock • Claude 3 Sonnet",
+                                provider: "bedrock",
+                                status: "available"
                             }
                         ];
                         setAvailableModels(fallback);
-                        setError("Could not load available models. Check your connection to the API server.");
+                        setError("Could not load available models. Using default.");
                     } finally {
                         setLoadingModels(false);
                     }
@@ -1789,10 +1789,8 @@ Remember to:
                                     suggestion = errorData.suggestion;
                                 } else {
                                     // Fallback to basic error handling
-                                    if (error.message.includes("Cannot connect to Ollama")) {
-                                        errorMessage += "The API server cannot reach Ollama. Please ensure Ollama is running (ollama serve).";
-                                    } else if (error.message.includes("404") || error.message.toLowerCase().includes("model")) {
-                                        errorMessage += `Model not available. If using Ollama, try: ollama pull ${llmModel.replace('ollama:', '')}`;
+                                    if (error.message.includes("404") || error.message.toLowerCase().includes("model")) {
+                                        errorMessage += "Model not available. Please select a different model or check Bedrock configuration.";
                                     } else {
                                         errorMessage += error.message;
                                     }
@@ -3429,32 +3427,11 @@ Remember to:
                                         AI Assistant
                                     </Typography>
                                     
-                                    {/* Provider Status and Recommendations */}
-                                    {modelRecommendations && (modelRecommendations.ollama || modelRecommendations.litellm) && (
-                                        <Alert severity="info" sx={{ mb: 2 }}>
-                                            <Typography variant="body2" sx={{ mb: 1 }}>
-                                                <strong>Expand your AI options:</strong>
-                                            </Typography>
-                                            {modelRecommendations.ollama && (
-                                                <Typography variant="body2" sx={{ mb: 1 }}>
-                                                    🦙 <strong>Ollama:</strong> {modelRecommendations.ollama}
-                                                </Typography>
-                                            )}
-                                            {modelRecommendations.litellm && (
-                                                <Typography variant="body2">
-                                                    🌐 <strong>LiteLLM:</strong> {modelRecommendations.litellm}
-                                                </Typography>
-                                            )}
-                                        </Alert>
-                                    )}
-
-                                    {modelStatus && !modelStatus.ollama?.available && !modelStatus.litellm?.available && !modelStatus.openai?.available && (
+                                    {/* Provider Status Warning - only show if Bedrock unavailable */}
+                                    {modelStatus && !modelStatus.bedrock?.available && (
                                         <Alert severity="warning" sx={{ mb: 2 }}>
                                             <Typography variant="body2">
-                                                <strong>No AI providers available.</strong> 
-                                                {modelStatus.ollama?.error && ` Ollama: ${modelStatus.ollama.error}.`}
-                                                {modelStatus.litellm?.error && ` LiteLLM: ${modelStatus.litellm.error}.`}
-                                                {modelStatus.openai?.error && ` OpenAI: ${modelStatus.openai.error}.`}
+                                                <strong>AI service unavailable.</strong> Please check Bedrock configuration.
                                             </Typography>
                                         </Alert>
                                     )}
@@ -3508,11 +3485,7 @@ Remember to:
                                                                         "block",
                                                                 }}
                                                             >
-                                                                Make sure Ollama
-                                                                is running:{" "}
-                                                                <code>
-                                                                    ollama serve
-                                                                </code>
+                                                                Try selecting a different model from the dropdown.
                                                             </Typography>
                                                         )}
                                                         {msg.sources && (
@@ -3595,29 +3568,11 @@ Remember to:
                                         {/* Provider status indicators */}
                                         {modelStatus && (
                                             <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                                {modelStatus.ollama?.available && (
-                                                    <Chip 
-                                                        size="small" 
-                                                        label="Ollama" 
-                                                        color="success" 
-                                                        variant="outlined"
-                                                        icon={<span className="material-icons" style={{fontSize: 14}}>check</span>}
-                                                    />
-                                                )}
-                                                {modelStatus.litellm?.available && (
-                                                    <Chip 
-                                                        size="small" 
-                                                        label="LiteLLM" 
-                                                        color="primary" 
-                                                        variant="outlined"
-                                                        icon={<span className="material-icons" style={{fontSize: 14}}>hub</span>}
-                                                    />
-                                                )}
-                                                {modelStatus.openai?.available && (
-                                                    <Chip 
-                                                        size="small" 
-                                                        label="OpenAI" 
-                                                        color="info" 
+                                                {modelStatus.bedrock?.available && (
+                                                    <Chip
+                                                        size="small"
+                                                        label="Bedrock"
+                                                        color="success"
                                                         variant="outlined"
                                                         icon={<span className="material-icons" style={{fontSize: 14}}>cloud</span>}
                                                     />

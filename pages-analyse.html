@@ -13,14 +13,18 @@
     #results { margin-top: 12px; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border-bottom: 1px solid #1f2937; padding: 6px; font-size: 13px; }
+    th { cursor: pointer; user-select: none; }
+    th:hover { background: #1a2332; }
+    th .sort-icon { margin-left: 4px; opacity: 0.5; }
+    th.sorted .sort-icon { opacity: 1; }
     a { color: #60a5fa; text-decoration: none; }
   </style>
 </head>
 <body>
   <h2>Pages Analyse (Browser → Typesense direct)</h2>
   <div class="row">
-    <input id="ts_base" placeholder="Typesense base (http://localhost:8108)" />
-    <input id="ts_key" placeholder="Typesense API key" />
+    <input id="ts_base" placeholder="Typesense base" value="/typesense" />
+    <input id="ts_key" placeholder="Typesense API key" value="your-secure-api-key-here" />
     <input id="site_a" placeholder="Site A (e.g., servicesaustralia.gov.au)" value="servicesaustralia.gov.au" />
     <input id="site_b" placeholder="Site B (e.g., my.gov.au)" value="my.gov.au" />
   </div>
@@ -44,16 +48,12 @@
   <div id="results"></div>
 
   <script>
-    const defaultTypesenseBase = location.protocol.startsWith('http')
-      ? `${location.protocol}//${location.hostname}:8108`
-      : 'http://localhost:8108';
-    const tsBaseInput = document.getElementById('ts_base');
-    if (!tsBaseInput.value) tsBaseInput.value = defaultTypesenseBase;
-    function tsBase() { return (tsBaseInput.value || defaultTypesenseBase).trim(); }
-    function tsKey() { return (document.getElementById('ts_key').value || '').trim(); }
+    function tsBase() { return document.getElementById('ts_base').value.trim() || '/typesense'; }
+    function tsKey() { return document.getElementById('ts_key').value.trim() || 'your-secure-api-key-here'; }
     async function tsSearch(collection, params) {
-      const res = await fetch(`${tsBase()}/collections/${encodeURIComponent(collection)}/documents/search`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-TYPESENSE-API-KEY': tsKey() }, body: JSON.stringify(params)
+      const query = new URLSearchParams(params).toString();
+      const res = await fetch(`${tsBase()}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
+        method: 'GET', headers: { 'X-TYPESENSE-API-KEY': tsKey() }
       });
       if (!res.ok) {
         const err = new Error(`${collection} HTTP ${res.status}`);
@@ -119,10 +119,37 @@
       }
     }
 
-    function renderTable(pairs) {
+    let currentPairs = [];
+    let sortColumn = 'score';
+    let sortAsc = false;
+
+    const columns = [
+      { key: 'pageA', label: 'Page A', getValue: p => (p.a.title || p.a.url).toLowerCase() },
+      { key: 'pageB', label: 'Page B', getValue: p => (p.b.title || p.b.url).toLowerCase() },
+      { key: 'score', label: 'Score', getValue: p => p.score },
+      { key: 'tagSim', label: 'Tags', getValue: p => p.tagSim },
+      { key: 'embSim', label: 'Embed', getValue: p => p.embSim },
+      { key: 'linkSim', label: 'Link', getValue: p => p.linkSim },
+    ];
+
+    function sortPairs(pairs, colKey, asc) {
+      const col = columns.find(c => c.key === colKey);
+      if (!col) return pairs;
+      return [...pairs].sort((a, b) => {
+        const va = col.getValue(a), vb = col.getValue(b);
+        if (va < vb) return asc ? -1 : 1;
+        if (va > vb) return asc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function renderTable(pairs, preserveSort = false) {
       const el = document.getElementById('results');
       if (!pairs.length) { el.innerHTML = '<em>No results</em>'; return; }
-      const rows = pairs.map(p => `
+      currentPairs = pairs;
+      if (!preserveSort) { sortColumn = 'score'; sortAsc = false; }
+      const sorted = sortPairs(pairs, sortColumn, sortAsc);
+      const rows = sorted.map(p => `
         <tr>
           <td><a href="${p.a.url}" target="_blank">${p.a.title || p.a.url}</a></td>
           <td><a href="${p.b.url}" target="_blank">${p.b.title || p.b.url}</a></td>
@@ -131,11 +158,24 @@
           <td>${p.embSim.toFixed(3)}</td>
           <td>${p.linkSim.toFixed(3)}</td>
         </tr>`).join('');
+      const headers = columns.map(c => {
+        const isSorted = sortColumn === c.key;
+        const icon = isSorted ? (sortAsc ? '▲' : '▼') : '⇅';
+        return `<th data-col="${c.key}" class="${isSorted ? 'sorted' : ''}">${c.label}<span class="sort-icon">${icon}</span></th>`;
+      }).join('');
       el.innerHTML = `
         <table>
-          <thead><tr><th>Page A</th><th>Page B</th><th>Score</th><th>Tags</th><th>Embed</th><th>Link</th></tr></thead>
+          <thead><tr>${headers}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
+      el.querySelectorAll('th').forEach(th => {
+        th.onclick = () => {
+          const col = th.dataset.col;
+          if (sortColumn === col) { sortAsc = !sortAsc; }
+          else { sortColumn = col; sortAsc = col === 'pageA' || col === 'pageB'; }
+          renderTable(currentPairs, true);
+        };
+      });
     }
 
     function download(name, text) {
