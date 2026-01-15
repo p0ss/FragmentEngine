@@ -425,15 +425,15 @@
             async function loadPlatformData() {
                 setLoading(true);
                 try {
-                    // Get topics (categories) for this platform
-                    const catData = await tsFacets('content_fragments', 'categories', `hierarchy_lvl0:=${selectedPlatform}`, 20);
-                    const lifeData = await tsFacets('content_fragments', 'life_events', `hierarchy_lvl0:=${selectedPlatform}`, 20);
+                    // Get topics (life_events) for this platform from content_pages
+                    const lifeData = await tsFacets('content_pages', 'life_events', `host:=${selectedPlatform}`, 20);
+                    const catData = await tsFacets('content_pages', 'categories', `host:=${selectedPlatform}`, 20);
 
-                    // Combine categories and life events as "topics"
-                    const catFacets = catData.facet_counts?.find(f => f.field_name === 'categories')?.counts || [];
+                    // Combine life events and categories as "topics"
                     const lifeFacets = lifeData.facet_counts?.find(f => f.field_name === 'life_events')?.counts || [];
+                    const catFacets = catData.facet_counts?.find(f => f.field_name === 'categories')?.counts || [];
 
-                    const topicList = [...catFacets.slice(0, 4), ...lifeFacets.slice(0, 4)]
+                    const topicList = [...lifeFacets.slice(0, 4), ...catFacets.slice(0, 4)]
                         .filter((t, i, arr) => arr.findIndex(x => x.value === t.value) === i)
                         .slice(0, 6)
                         .map((t, i) => ({

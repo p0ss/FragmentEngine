@@ -481,8 +481,8 @@
 
             async function loadTopics() {
                 try {
-                    // Get topics from life_events and categories
-                    const lifeData = await tsFacets('content_fragments', 'life_events', '', 30);
+                    // Get topics from life_events in content_pages (not fragments)
+                    const lifeData = await tsFacets('content_pages', 'life_events', '', 30);
                     const lifeFacets = lifeData.facet_counts?.find(f => f.field_name === 'life_events')?.counts || [];
 
                     const topicList = lifeFacets.slice(0, 15).map(t => ({
@@ -495,18 +495,20 @@
                     if (topicList.length > 0) {
                         setSelectedTopic(topicList[0].value);
                     }
+                    setLoading(false);
                 } catch (err) {
                     console.error('Error loading topics:', err);
+                    setLoading(false);
                 }
             }
 
             async function loadTopicData() {
                 setLoading(true);
                 try {
-                    // Get fragments for this topic
+                    // Get fragments for this topic (search by title/content)
                     const fragData = await tsSearch('content_fragments', {
                         q: selectedTopic,
-                        query_by: 'life_events,categories,title,content_text',
+                        query_by: 'title,content_text',
                         per_page: 20
                     });
 
@@ -520,9 +522,9 @@
 
                     setFragments(fragmentList);
 
-                    // Get platforms using this topic
-                    const platformData = await tsFacets('content_fragments', 'hierarchy_lvl0', `life_events:=${selectedTopic}`, 20);
-                    const platformFacets = platformData.facet_counts?.find(f => f.field_name === 'hierarchy_lvl0')?.counts || [];
+                    // Get platforms (hosts) using this topic from content_pages
+                    const platformData = await tsFacets('content_pages', 'host', `life_events:=${selectedTopic}`, 20);
+                    const platformFacets = platformData.facet_counts?.find(f => f.field_name === 'host')?.counts || [];
 
                     setPlatforms(platformFacets.slice(0, 6).map((p, i) => ({
                         id: i,

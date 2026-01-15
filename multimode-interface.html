@@ -2743,14 +2743,10 @@ Remember to:
                             <Toolbar>
                                 <Box
                                     className="logo-container"
-                                    sx={{ flexGrow: 1 }}
+                                    sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}
                                 >
-                                    <img
-                                        src="img/logo.png"
-                                        alt="myGov"
-                                        className="logo-image"
-                                    />
-                                    <Typography variant="h6" component="div">
+                                    <span className="material-icons" style={{ fontSize: '2rem', color: '#1976d2' }}>account_balance</span>
+                                    <Typography variant="h6" component="div" sx={{ fontWeight: 700 }}>
                                         myGov
                                     </Typography>
                                 </Box>

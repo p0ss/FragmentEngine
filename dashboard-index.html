@@ -10,14 +10,13 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: #f5f5f5;
             min-height: 100vh;
-            color: #fff;
+            color: #1f2933;
         }
         .header {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: #66d3ee;
+            border-bottom: 1px solid #e0e0e0;
             padding: 1rem 2rem;
             display: flex;
             align-items: center;
@@ -26,13 +25,11 @@
         .header h1 {
             font-size: 1.5rem;
             font-weight: 600;
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #1976d2;
         }
         .header .badge {
-            background: rgba(0,212,255,0.2);
-            color: #00d4ff;
+            background: rgba(25,118,210,0.15);
+            color: #1976d2;
             padding: 0.25rem 0.75rem;
             border-radius: 1rem;
             font-size: 0.75rem;
@@ -53,7 +50,7 @@
             margin-bottom: 1rem;
         }
         .intro p {
-            color: rgba(255,255,255,0.7);
+            color: #607d8b;
             font-size: 1.1rem;
             max-width: 600px;
             margin: 0 auto;
@@ -64,9 +61,8 @@
             gap: 1.5rem;
         }
         .dashboard-card {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: #ffffff;
+            border: 1px solid #e6eef7;
             border-radius: 1rem;
             padding: 2rem;
             transition: all 0.3s ease;
@@ -74,12 +70,12 @@
             text-decoration: none;
             color: inherit;
             display: block;
+            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.08);
         }
         .dashboard-card:hover {
             transform: translateY(-4px);
-            background: rgba(255,255,255,0.1);
-            border-color: rgba(0,212,255,0.5);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border-color: #1976d2;
+            box-shadow: 0 12px 24px rgba(25, 118, 210, 0.15);
         }
         .card-icon {
             width: 60px;
@@ -101,12 +97,12 @@
             margin-bottom: 0.5rem;
         }
         .card-persona {
-            color: rgba(255,255,255,0.5);
+            color: #607d8b;
             font-size: 0.875rem;
             margin-bottom: 1rem;
         }
         .card-description {
-            color: rgba(255,255,255,0.7);
+            color: #546e7a;
             font-size: 0.9rem;
             line-height: 1.6;
             margin-bottom: 1.5rem;
@@ -117,21 +113,21 @@
             gap: 0.5rem;
         }
         .feature-tag {
-            background: rgba(255,255,255,0.1);
+            background: #e3f2fd;
             padding: 0.25rem 0.75rem;
             border-radius: 1rem;
             font-size: 0.75rem;
-            color: rgba(255,255,255,0.8);
+            color: #1976d2;
         }
         .tools-section {
             margin-top: 3rem;
             padding-top: 3rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid #e0e0e0;
         }
         .tools-section h3 {
             font-size: 1.25rem;
             margin-bottom: 1.5rem;
-            color: rgba(255,255,255,0.9);
+            color: #1f2933;
         }
         .tools-grid {
             display: grid;
@@ -139,22 +135,23 @@
             gap: 1rem;
         }
         .tool-link {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: #ffffff;
+            border: 1px solid #e6eef7;
             border-radius: 0.75rem;
             padding: 1rem 1.5rem;
-            color: rgba(255,255,255,0.7);
+            color: #546e7a;
             text-decoration: none;
             display: flex;
             align-items: center;
             gap: 0.75rem;
             transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
         }
         .tool-link:hover {
-            background: rgba(255,255,255,0.08);
-            color: #fff;
+            background: #e3f2fd;
+            color: #1976d2;
         }
-        .tool-link .material-icons { font-size: 1.25rem; opacity: 0.7; }
+        .tool-link .material-icons { font-size: 1.25rem; color: #1976d2; }
     </style>
 </head>
 <body>
