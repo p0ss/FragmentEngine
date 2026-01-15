@@ -478,22 +478,21 @@ async function performSearch(query, options = {}) {
   const params = SearchFragmentsSchema.parse({ query, ...options });
   
   // Build Typesense search parameters
+  // Note: content_fragments collection does NOT have life_events field
   const searchParams = {
     q: params.query || "*",
     query_by: "title,content_text",
-    include_fields: "id,title,url,content_text,content_html,categories,life_events,provider,states,hierarchy_lvl0,srrs_score",
+    include_fields: "id,title,url,content_text,content_html,categories,provider,states,hierarchy_lvl0,srrs_score",
     per_page: params.per_page,
     page: 1,
   };
 
-  // Add filters
+  // Add filters (life_events not available in content_fragments)
   const filterConditions = [];
   if (params.category) {
     filterConditions.push(`categories:=[${params.category}]`);
   }
-  if (params.life_event) {
-    filterConditions.push(`life_events:=[${params.life_event}]`);
-  }
+  // Note: life_event filter skipped - field not in content_fragments schema
   if (params.provider) {
     filterConditions.push(`provider:=${params.provider}`);
   }
@@ -533,6 +532,7 @@ async function performSearch(query, options = {}) {
   }
 
   // Format results
+  // Note: content_fragments doesn't have life_events field
   const results = response.hits.map((hit) => ({
     id: hit.document.id,
     title: hit.document.title,
@@ -540,7 +540,7 @@ async function performSearch(query, options = {}) {
     content: hit.document.content_text,
     content_html: hit.document.content_html,
     category: hit.document.categories?.[0] || "General",
-    life_event: hit.document.life_events?.[0] || "General", 
+    life_event: "General", // life_events not in content_fragments schema
     provider: hit.document.provider || "Services Australia",
     state: hit.document.states?.[0] || "National",
     hierarchy: hit.document.hierarchy_lvl0 || hit.document.title,
