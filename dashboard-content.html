@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Dashboard - Content Library</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1419;
+            min-height: 100vh;
+            color: #e7e9ea;
+        }
+        .app { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 260px;
+            background: #16181c;
+            border-right: 1px solid #2f3336;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .logo .material-icons { color: #00d4ff; }
+        .content-selector {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #2f3336;
+        }
+        .content-selector select {
+            width: 100%;
+            background: #1d1f23;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            color: #e7e9ea;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label {
+            font-size: 0.75rem;
+            color: #71767b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: #e7e9ea;
+            text-decoration: none;
+            margin-bottom: 0.25rem;
+            transition: background 0.2s;
+        }
+        .nav-item:hover { background: #1d1f23; }
+        .nav-item.active { background: rgba(0,212,255,0.1); color: #00d4ff; }
+        .nav-item .material-icons { font-size: 1.25rem; opacity: 0.8; }
+        .main { flex: 1; display: flex; flex-direction: column; }
+        .header {
+            background: #16181c;
+            border-bottom: 1px solid #2f3336;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; }
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #71767b;
+        }
+        .breadcrumb a { color: #1d9bf0; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .header-actions { display: flex; gap: 0.75rem; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #00d4ff; color: #000; }
+        .btn-primary:hover { background: #00bfe6; }
+        .btn-secondary { background: transparent; color: #e7e9ea; border: 1px solid #2f3336; }
+        .btn-secondary:hover { background: #1d1f23; }
+        .btn .material-icons { font-size: 1.125rem; }
+        .content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .metric-card {
+            background: #16181c;
+            border: 1px solid #2f3336;
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: #71767b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .grid-3col {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card {
+            background: #16181c;
+            border: 1px solid #2f3336;
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #2f3336;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .card-body { padding: 1.5rem; }
+        .fragment-on-page {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #1d1f23;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .fragment-on-page:last-child { margin-bottom: 0; }
+        .fragment-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .fragment-icon .material-icons { color: #fff; }
+        .fragment-info { flex: 1; }
+        .fragment-name { font-weight: 500; margin-bottom: 0.25rem; }
+        .fragment-meta { font-size: 0.75rem; color: #71767b; }
+        .fragment-update {
+            font-size: 0.625rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            background: rgba(0,186,124,0.15);
+            color: #00ba7c;
+        }
+        .fragment-actions { display: flex; gap: 0.5rem; }
+        .fragment-action-btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #2f3336;
+            background: transparent;
+            color: #e7e9ea;
+            transition: all 0.2s;
+        }
+        .fragment-action-btn:hover { background: #2f3336; }
+        .fragment-action-btn.primary { background: #00d4ff; color: #000; border: none; }
+        .fragment-action-btn.primary:hover { background: #00bfe6; }
+        .change-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .change-item:last-child { border-bottom: none; }
+        .change-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #1d1f23;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .change-icon .material-icons { font-size: 1rem; }
+        .change-icon.edit .material-icons { color: #1d9bf0; }
+        .change-icon.add .material-icons { color: #00ba7c; }
+        .change-icon.update .material-icons { color: #f7b733; }
+        .change-info { flex: 1; }
+        .change-text { font-size: 0.875rem; margin-bottom: 0.125rem; }
+        .change-time { font-size: 0.75rem; color: #71767b; }
+        .seo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .seo-item:last-child { border-bottom: none; }
+        .seo-label { color: #71767b; font-size: 0.875rem; }
+        .seo-value { font-weight: 600; }
+        .draft-section {
+            background: #1d1f23;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .draft-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .draft-title { font-weight: 500; }
+        .draft-status {
+            font-size: 0.625rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            background: rgba(255,217,61,0.15);
+            color: #ffd93d;
+        }
+        .draft-actions { display: flex; gap: 0.5rem; }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .contact-item:last-child { border-bottom: none; }
+        .contact-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .contact-info { flex: 1; }
+        .contact-name { font-size: 0.875rem; font-weight: 500; }
+        .contact-role { font-size: 0.75rem; color: #71767b; }
+        .contact-link {
+            color: #1d9bf0;
+            font-size: 0.75rem;
+            text-decoration: none;
+        }
+        .contact-link:hover { text-decoration: underline; }
+        .chart-container { height: 150px; position: relative; }
+        .feedback-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .feedback-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            background: #1d1f23;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            color: #e7e9ea;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .feedback-btn:hover { background: #2f3336; }
+        .feedback-btn .material-icons { color: #71767b; }
+        .feedback-btn span { font-size: 0.875rem; }
+        .badge-count {
+            background: #f4212e;
+            color: #fff;
+            font-size: 0.625rem;
+            font-weight: 600;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.75rem;
+            margin-left: 0.5rem;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: #71767b;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #2f3336;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const TYPESENSE_BASE = '/typesense';
+        const TYPESENSE_KEY = 'your-secure-api-key-here';
+
+        async function tsSearch(collection, params) {
+            const query = new URLSearchParams(params).toString();
+            const res = await fetch(`${TYPESENSE_BASE}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
+                method: 'GET',
+                headers: { 'X-TYPESENSE-API-KEY': TYPESENSE_KEY }
+            });
+            if (!res.ok) throw new Error(`Typesense error: ${res.status}`);
+            return res.json();
+        }
+
+        function App() {
+            const [loading, setLoading] = useState(true);
+            const [pages, setPages] = useState([]);
+            const [selectedPage, setSelectedPage] = useState(null);
+            const [fragments, setFragments] = useState([]);
+            const [changes, setChanges] = useState([]);
+            const [metrics, setMetrics] = useState({
+                health: 88,
+                seoAi: 92,
+                views: '12.4k',
+                subscribers: 8
+            });
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                loadPages();
+            }, []);
+
+            useEffect(() => {
+                if (selectedPage) {
+                    loadPageData();
+                }
+            }, [selectedPage]);
+
+            useEffect(() => {
+                if (selectedPage && chartRef.current) {
+                    renderChart();
+                }
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [selectedPage]);
+
+            async function loadPages() {
+                try {
+                    const data = await tsSearch('content_pages', {
+                        q: '*',
+                        query_by: 'title',
+                        per_page: 30
+                    });
+
+                    const pageList = (data.hits || []).map(hit => ({
+                        id: hit.document.id,
+                        title: hit.document.title || 'Untitled Page',
+                        url: hit.document.url,
+                        host: hit.document.host
+                    }));
+
+                    setPages(pageList);
+                    if (pageList.length > 0) {
+                        setSelectedPage(pageList[0]);
+                    }
+                } catch (err) {
+                    console.error('Error loading pages:', err);
+                }
+            }
+
+            async function loadPageData() {
+                setLoading(true);
+                try {
+                    // Search for fragments related to this page
+                    const fragData = await tsSearch('content_fragments', {
+                        q: selectedPage.title,
+                        query_by: 'title,content_text',
+                        per_page: 5
+                    });
+
+                    const fragmentList = (fragData.hits || []).slice(0, 3).map((hit, i) => ({
+                        id: i,
+                        name: hit.document.title || 'Fragment',
+                        lastUpdated: getRandomTimeAgo(),
+                        hasUpdate: Math.random() > 0.6
+                    }));
+
+                    setFragments(fragmentList);
+
+                    // Generate recent changes
+                    setChanges([
+                        { type: 'edit', text: 'Updated eligibility criteria section', time: '2 hours ago' },
+                        { type: 'add', text: 'Added new fragment: Payment rates 2024', time: '1 day ago' },
+                        { type: 'update', text: 'Synced fragment from topic owner', time: '3 days ago' },
+                        { type: 'edit', text: 'Fixed accessibility issues', time: '1 week ago' }
+                    ]);
+
+                    // Update metrics with some randomness
+                    setMetrics({
+                        health: 80 + Math.floor(Math.random() * 15),
+                        seoAi: 85 + Math.floor(Math.random() * 12),
+                        views: (10 + Math.floor(Math.random() * 20)).toFixed(1) + 'k',
+                        subscribers: 5 + Math.floor(Math.random() * 10)
+                    });
+
+                } catch (err) {
+                    console.error('Error loading page data:', err);
+                }
+                setLoading(false);
+            }
+
+            function getRandomTimeAgo() {
+                const times = ['Just now', '1 hour ago', '3 hours ago', '1 day ago', '2 days ago', '1 week ago'];
+                return times[Math.floor(Math.random() * times.length)];
+            }
+
+            function renderChart() {
+                const ctx = chartRef.current.getContext('2d');
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+                chartInstance.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{
+                            label: 'Health',
+                            data: [85, 87, 84, 88, 90, 88, metrics.health],
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0,212,255,0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: '#2f3336' },
+                                ticks: { color: '#71767b', font: { size: 10 } }
+                            },
+                            y: {
+                                min: 0,
+                                max: 100,
+                                grid: { color: '#2f3336' },
+                                ticks: { color: '#71767b', font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const topicOwner = { name: 'Jane Wilson', role: 'Topic Owner - Carers', initials: 'JW' };
+
+            return (
+                <div className="app">
+                    <aside className="sidebar">
+                        <div className="logo">
+                            <span className="material-icons">article</span>
+                            Content Library
+                        </div>
+                        <div className="content-selector">
+                            <select
+                                value={selectedPage?.id || ''}
+                                onChange={e => {
+                                    const page = pages.find(p => p.id === e.target.value);
+                                    if (page) setSelectedPage(page);
+                                }}
+                            >
+                                {pages.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.title.length > 30 ? p.title.slice(0, 30) + '...' : p.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <nav className="nav-section">
+                            <div className="nav-label">Views</div>
+                            <a href="dashboard-portfolio.html" className="nav-item">
+                                <span className="material-icons">account_balance</span>
+                                Portfolio
+                            </a>
+                            <a href="dashboard-platform.html" className="nav-item">
+                                <span className="material-icons">dns</span>
+                                Platform
+                            </a>
+                            <a href="dashboard-topic.html" className="nav-item">
+                                <span className="material-icons">category</span>
+                                Topics
+                            </a>
+                            <a href="dashboard-content.html" className="nav-item active">
+                                <span className="material-icons">article</span>
+                                Content
+                            </a>
+                        </nav>
+
+                        <nav className="nav-section">
+                            <div className="nav-label">Tools</div>
+                            <a href="multimode-interface.html" className="nav-item">
+                                <span className="material-icons">smart_toy</span>
+                                AI Assistant
+                            </a>
+                            <a href="pages-analyse.html" className="nav-item">
+                                <span className="material-icons">compare</span>
+                                Similarity
+                            </a>
+                        </nav>
+                    </aside>
+
+                    <main className="main">
+                        <header className="header">
+                            <div className="header-left">
+                                <div>
+                                    <div className="breadcrumb">
+                                        <a href="dashboard-portfolio.html">Portfolio</a>
+                                        <span>/</span>
+                                        <a href="dashboard-platform.html">{selectedPage?.host || 'Platform'}</a>
+                                        <span>/</span>
+                                        <a href="dashboard-topic.html">Topic</a>
+                                        <span>/</span>
+                                        <span>Content</span>
+                                    </div>
+                                    <h1>{selectedPage?.title || 'Content Dashboard'}</h1>
+                                </div>
+                            </div>
+                            <div className="header-actions">
+                                <button className="btn btn-secondary">
+                                    <span className="material-icons">star_outline</span>
+                                    Watchlist
+                                </button>
+                                <button className="btn btn-secondary">
+                                    <span className="material-icons">share</span>
+                                    Share Report
+                                </button>
+                                <button className="btn btn-primary">
+                                    <span className="material-icons">campaign</span>
+                                    Alert Subscribers
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="content">
+                            {loading ? (
+                                <div className="loading">
+                                    <div className="spinner"></div>
+                                    Loading content data...
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="metrics-grid">
+                                        <div className="metric-card">
+                                            <div className="metric-label">Health</div>
+                                            <div className="metric-value">{metrics.health}%</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">SEO/AI Status</div>
+                                            <div className="metric-value">{metrics.seoAi}%</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">Views</div>
+                                            <div className="metric-value">{metrics.views}</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">Subscribers</div>
+                                            <div className="metric-value">{metrics.subscribers}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid-3col">
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Fragments on this Page</span>
+                                            </div>
+                                            <div className="card-body">
+                                                {fragments.map(fragment => (
+                                                    <div key={fragment.id} className="fragment-on-page">
+                                                        <div className="fragment-icon">
+                                                            <span className="material-icons">extension</span>
+                                                        </div>
+                                                        <div className="fragment-info">
+                                                            <div className="fragment-name">{fragment.name}</div>
+                                                            <div className="fragment-meta">
+                                                                Last updated: {fragment.lastUpdated}
+                                                                {fragment.hasUpdate && (
+                                                                    <span className="fragment-update" style={{marginLeft: '0.5rem'}}>
+                                                                        Update available
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="fragment-actions">
+                                                            <button className="fragment-action-btn">Copy</button>
+                                                            <button className="fragment-action-btn primary">Update</button>
+                                                            <button className="fragment-action-btn">Adapt</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Recent Changes</span>
+                                            </div>
+                                            <div className="card-body">
+                                                {changes.map((change, i) => (
+                                                    <div key={i} className="change-item">
+                                                        <div className={`change-icon ${change.type}`}>
+                                                            <span className="material-icons">
+                                                                {change.type === 'edit' ? 'edit' :
+                                                                 change.type === 'add' ? 'add' : 'sync'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="change-info">
+                                                            <div className="change-text">{change.text}</div>
+                                                            <div className="change-time">{change.time}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">SEO/AI Status</span>
+                                            </div>
+                                            <div className="card-body">
+                                                <div className="seo-item">
+                                                    <span className="seo-label">Google Position</span>
+                                                    <span className="seo-value">#3</span>
+                                                </div>
+                                                <div className="seo-item">
+                                                    <span className="seo-label">AI Accuracy</span>
+                                                    <span className="seo-value">{metrics.seoAi - 4}%</span>
+                                                </div>
+                                                <div className="seo-item">
+                                                    <span className="seo-label">Top Query</span>
+                                                    <span className="seo-value" style={{fontSize: '0.75rem'}}>carer payment</span>
+                                                </div>
+                                                <div className="seo-item">
+                                                    <span className="seo-label">Monthly Traffic</span>
+                                                    <span className="seo-value">{metrics.views}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid-2col">
+                                        <div>
+                                            <div className="card" style={{marginBottom: '1.5rem'}}>
+                                                <div className="card-header">
+                                                    <span className="card-title">Draft in Progress</span>
+                                                </div>
+                                                <div className="card-body">
+                                                    <div className="draft-section">
+                                                        <div className="draft-header">
+                                                            <span className="draft-title">Eligibility criteria update</span>
+                                                            <span className="draft-status">Draft</span>
+                                                        </div>
+                                                        <p style={{fontSize: '0.875rem', color: '#71767b', marginBottom: '1rem'}}>
+                                                            Updated payment rates and eligibility thresholds for 2024.
+                                                        </p>
+                                                        <div className="draft-actions">
+                                                            <button className="fragment-action-btn primary">Preview</button>
+                                                            <button className="fragment-action-btn">Share draft</button>
+                                                            <button className="fragment-action-btn">Get feedback</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="card">
+                                                <div className="card-header">
+                                                    <span className="card-title">Health Trend</span>
+                                                </div>
+                                                <div className="card-body">
+                                                    <div className="chart-container">
+                                                        <canvas ref={chartRef}></canvas>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="card" style={{marginBottom: '1.5rem'}}>
+                                                <div className="card-header">
+                                                    <span className="card-title">Seek Feedback</span>
+                                                </div>
+                                                <div className="card-body">
+                                                    <div className="feedback-actions">
+                                                        <a href="#" className="feedback-btn">
+                                                            <span className="material-icons">rate_review</span>
+                                                            <span>Request expert review</span>
+                                                        </a>
+                                                        <a href="#" className="feedback-btn">
+                                                            <span className="material-icons">people</span>
+                                                            <span>Find subscribers</span>
+                                                        </a>
+                                                        <a href="#" className="feedback-btn">
+                                                            <span className="material-icons">forum</span>
+                                                            <span>Start discussion</span>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="card">
+                                                <div className="card-header">
+                                                    <span className="card-title">Topic Owner</span>
+                                                </div>
+                                                <div className="card-body">
+                                                    <div className="contact-item" style={{borderBottom: 'none', padding: 0}}>
+                                                        <div className="contact-avatar">{topicOwner.initials}</div>
+                                                        <div className="contact-info">
+                                                            <div className="contact-name">{topicOwner.name}</div>
+                                                            <div className="contact-role">{topicOwner.role}</div>
+                                                        </div>
+                                                        <a href="#" className="contact-link">Contact</a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

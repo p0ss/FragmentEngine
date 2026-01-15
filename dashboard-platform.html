@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform Dashboard - Content Library</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1419;
+            min-height: 100vh;
+            color: #e7e9ea;
+        }
+        .app { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 260px;
+            background: #16181c;
+            border-right: 1px solid #2f3336;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .logo .material-icons { color: #00ba7c; }
+        .platform-selector {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #2f3336;
+        }
+        .platform-selector select {
+            width: 100%;
+            background: #1d1f23;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            color: #e7e9ea;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label {
+            font-size: 0.75rem;
+            color: #71767b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: #e7e9ea;
+            text-decoration: none;
+            margin-bottom: 0.25rem;
+            transition: background 0.2s;
+        }
+        .nav-item:hover { background: #1d1f23; }
+        .nav-item.active { background: rgba(0,186,124,0.1); color: #00ba7c; }
+        .nav-item .material-icons { font-size: 1.25rem; opacity: 0.8; }
+        .main { flex: 1; display: flex; flex-direction: column; }
+        .header {
+            background: #16181c;
+            border-bottom: 1px solid #2f3336;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; }
+        .header-subtitle { color: #71767b; font-size: 0.875rem; }
+        .header-actions { display: flex; gap: 0.75rem; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #00ba7c; color: #fff; }
+        .btn-primary:hover { background: #00a36c; }
+        .btn-secondary { background: transparent; color: #e7e9ea; border: 1px solid #2f3336; }
+        .btn-secondary:hover { background: #1d1f23; }
+        .btn .material-icons { font-size: 1.125rem; }
+        .content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .search-bar {
+            background: #16181c;
+            border: 1px solid #2f3336;
+            border-radius: 2rem;
+            padding: 0.875rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+        .search-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #e7e9ea;
+            font-size: 1rem;
+            outline: none;
+        }
+        .search-bar input::placeholder { color: #71767b; }
+        .ai-badge {
+            background: linear-gradient(135deg, #00ba7c, #1d9bf0);
+            color: #fff;
+            font-size: 0.625rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .metric-card {
+            background: #16181c;
+            border: 1px solid #2f3336;
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: #71767b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .grid-3col {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card {
+            background: #16181c;
+            border: 1px solid #2f3336;
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #2f3336;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .card-body { padding: 1.5rem; }
+        .topic-list { list-style: none; }
+        .topic-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid #2f3336;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .topic-item:hover { background: rgba(255,255,255,0.02); margin: 0 -1.5rem; padding: 1rem 1.5rem; }
+        .topic-item:last-child { border-bottom: none; }
+        .topic-info { flex: 1; }
+        .topic-name { font-weight: 500; margin-bottom: 0.25rem; }
+        .topic-meta {
+            font-size: 0.75rem;
+            color: #71767b;
+            display: flex;
+            gap: 1rem;
+        }
+        .topic-metrics { display: flex; gap: 1.5rem; align-items: center; }
+        .topic-metric { text-align: center; }
+        .topic-metric-value { font-weight: 600; font-size: 0.875rem; }
+        .topic-metric-label { font-size: 0.625rem; color: #71767b; text-transform: uppercase; }
+        .health-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .health-badge.good { background: rgba(0,186,124,0.15); color: #00ba7c; }
+        .health-badge.warning { background: rgba(255,217,61,0.15); color: #ffd93d; }
+        .health-badge.poor { background: rgba(244,33,46,0.15); color: #f4212e; }
+        .overlap-indicator {
+            font-size: 0.75rem;
+            color: #1d9bf0;
+        }
+        .watchlist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .watchlist-item:last-child { border-bottom: none; }
+        .watchlist-item .material-icons { color: #ffd93d; font-size: 1rem; }
+        .watchlist-title { font-size: 0.875rem; flex: 1; }
+        .watchlist-action {
+            color: #71767b;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .watchlist-action:hover { color: #e7e9ea; }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .contact-item:last-child { border-bottom: none; }
+        .contact-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1d9bf0, #7b2cbf);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .contact-info { flex: 1; }
+        .contact-name { font-size: 0.875rem; font-weight: 500; }
+        .contact-role { font-size: 0.75rem; color: #71767b; }
+        .contact-link {
+            color: #1d9bf0;
+            font-size: 0.75rem;
+            text-decoration: none;
+        }
+        .contact-link:hover { text-decoration: underline; }
+        .alert-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(244,33,46,0.1);
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .alert-item:last-child { margin-bottom: 0; }
+        .alert-item .material-icons { color: #f4212e; font-size: 1.25rem; }
+        .alert-item.warning { background: rgba(255,217,61,0.1); }
+        .alert-item.warning .material-icons { color: #ffd93d; }
+        .alert-item.info { background: rgba(29,155,240,0.1); }
+        .alert-item.info .material-icons { color: #1d9bf0; }
+        .alert-text { font-size: 0.875rem; }
+        .seo-queries { list-style: none; }
+        .seo-query-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .seo-query-item:last-child { border-bottom: none; }
+        .seo-query-text { font-size: 0.875rem; }
+        .seo-query-volume { font-size: 0.75rem; color: #71767b; }
+        .chart-container { height: 180px; position: relative; }
+        .badge-count {
+            background: #f4212e;
+            color: #fff;
+            font-size: 0.625rem;
+            font-weight: 600;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.75rem;
+            margin-left: 0.5rem;
+        }
+        .view-all {
+            display: block;
+            text-align: center;
+            color: #1d9bf0;
+            font-size: 0.875rem;
+            padding: 1rem;
+            text-decoration: none;
+            border-top: 1px solid #2f3336;
+        }
+        .view-all:hover { background: #1d1f23; }
+        .fragment-badge {
+            font-size: 0.625rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            background: rgba(29,155,240,0.15);
+            color: #1d9bf0;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: #71767b;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #2f3336;
+            border-top-color: #00ba7c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const TYPESENSE_BASE = '/typesense';
+        const TYPESENSE_KEY = 'your-secure-api-key-here';
+
+        async function tsSearch(collection, params) {
+            const query = new URLSearchParams(params).toString();
+            const res = await fetch(`${TYPESENSE_BASE}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
+                method: 'GET',
+                headers: { 'X-TYPESENSE-API-KEY': TYPESENSE_KEY }
+            });
+            if (!res.ok) throw new Error(`Typesense error: ${res.status}`);
+            return res.json();
+        }
+
+        async function tsFacets(collection, facetBy, filterBy = '', maxFacets = 100) {
+            const params = {
+                q: '*',
+                query_by: 'title',
+                facet_by: facetBy,
+                max_facet_values: maxFacets,
+                per_page: 0
+            };
+            if (filterBy) params.filter_by = filterBy;
+            return tsSearch(collection, params);
+        }
+
+        function App() {
+            const [loading, setLoading] = useState(true);
+            const [platforms, setPlatforms] = useState([]);
+            const [selectedPlatform, setSelectedPlatform] = useState('');
+            const [topics, setTopics] = useState([]);
+            const [metrics, setMetrics] = useState({
+                pages: 0,
+                topics: 0,
+                health: 0,
+                seoAi: 0,
+                watchlist: 5
+            });
+            const [watchlist, setWatchlist] = useState([]);
+            const [contacts, setContacts] = useState([]);
+            const [alerts, setAlerts] = useState([]);
+            const [searchQuery, setSearchQuery] = useState('');
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                loadPlatforms();
+            }, []);
+
+            useEffect(() => {
+                if (selectedPlatform) {
+                    loadPlatformData();
+                }
+            }, [selectedPlatform]);
+
+            useEffect(() => {
+                if (topics.length > 0 && chartRef.current) {
+                    renderChart();
+                }
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [topics]);
+
+            async function loadPlatforms() {
+                try {
+                    const data = await tsFacets('content_pages', 'host', '', 50);
+                    const hostFacets = data.facet_counts?.find(f => f.field_name === 'host')?.counts || [];
+                    setPlatforms(hostFacets.map(h => ({ value: h.value, label: h.value, count: h.count })));
+                    if (hostFacets.length > 0) {
+                        setSelectedPlatform(hostFacets[0].value);
+                    }
+                } catch (err) {
+                    console.error('Error loading platforms:', err);
+                }
+            }
+
+            async function loadPlatformData() {
+                setLoading(true);
+                try {
+                    // Get topics (categories) for this platform
+                    const catData = await tsFacets('content_fragments', 'categories', `hierarchy_lvl0:=${selectedPlatform}`, 20);
+                    const lifeData = await tsFacets('content_fragments', 'life_events', `hierarchy_lvl0:=${selectedPlatform}`, 20);
+
+                    // Combine categories and life events as "topics"
+                    const catFacets = catData.facet_counts?.find(f => f.field_name === 'categories')?.counts || [];
+                    const lifeFacets = lifeData.facet_counts?.find(f => f.field_name === 'life_events')?.counts || [];
+
+                    const topicList = [...catFacets.slice(0, 4), ...lifeFacets.slice(0, 4)]
+                        .filter((t, i, arr) => arr.findIndex(x => x.value === t.value) === i)
+                        .slice(0, 6)
+                        .map((t, i) => ({
+                            id: i,
+                            name: t.value,
+                            pages: t.count,
+                            health: Math.floor(70 + Math.random() * 25),
+                            overlap: Math.random() > 0.5 ? `${Math.floor(30 + Math.random() * 40)}% with dss.gov.au` : null,
+                            hasFragment: Math.random() > 0.6,
+                            needsReview: Math.random() > 0.8
+                        }));
+
+                    setTopics(topicList);
+
+                    // Get page count for platform
+                    const pageData = await tsSearch('content_pages', {
+                        q: '*',
+                        query_by: 'title',
+                        filter_by: `host:=${selectedPlatform}`,
+                        per_page: 0
+                    });
+
+                    // Calculate metrics
+                    const avgHealth = topicList.length > 0
+                        ? Math.round(topicList.reduce((a, t) => a + t.health, 0) / topicList.length)
+                        : 75;
+
+                    setMetrics({
+                        pages: pageData.found || 0,
+                        topics: topicList.length,
+                        health: avgHealth,
+                        seoAi: Math.floor(70 + Math.random() * 20),
+                        watchlist: 5
+                    });
+
+                    // Generate sample watchlist
+                    setWatchlist([
+                        { id: 1, title: 'Carer Payment eligibility page' },
+                        { id: 2, title: 'Getting support if you\'re caring...' },
+                        { id: 3, title: 'Carer Supplement annual payment' },
+                        { id: 4, title: 'Young Carer Bursary Program' },
+                        { id: 5, title: 'Respite care options' }
+                    ]);
+
+                    // Generate sample contacts
+                    setContacts([
+                        { id: 1, name: 'Jane Wilson', role: 'Carers Payment', initials: 'JW' },
+                        { id: 2, name: 'Mike Chen', role: 'Medicare', initials: 'MC' }
+                    ]);
+
+                    // Generate alerts
+                    const newAlerts = [];
+                    const lowHealth = topicList.find(t => t.health < 75);
+                    if (lowHealth) {
+                        newAlerts.push({ type: 'warning', message: `${lowHealth.name} topic below 'health' threshold` });
+                    }
+                    const withFragment = topicList.find(t => t.hasFragment);
+                    if (withFragment) {
+                        newAlerts.push({ type: 'info', message: `New fragment available for ${withFragment.name}` });
+                    }
+                    setAlerts(newAlerts);
+
+                } catch (err) {
+                    console.error('Error loading platform data:', err);
+                }
+                setLoading(false);
+            }
+
+            function renderChart() {
+                const ctx = chartRef.current.getContext('2d');
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                const sortedTopics = [...topics].sort((a, b) => b.health - a.health);
+
+                chartInstance.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedTopics.map(t => t.name.length > 15 ? t.name.slice(0, 15) + '...' : t.name),
+                        datasets: [{
+                            label: 'Health Score',
+                            data: sortedTopics.map(t => t.health),
+                            backgroundColor: sortedTopics.map(t =>
+                                t.health >= 80 ? 'rgba(0,186,124,0.8)' :
+                                t.health >= 60 ? 'rgba(255,217,61,0.8)' :
+                                'rgba(244,33,46,0.8)'
+                            ),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                min: 0,
+                                max: 100,
+                                grid: { color: '#2f3336' },
+                                ticks: { color: '#71767b' }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { color: '#71767b', font: { size: 11 } }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function getHealthClass(health) {
+                if (health >= 80) return 'good';
+                if (health >= 60) return 'warning';
+                return 'poor';
+            }
+
+            async function handleSearch(e) {
+                e.preventDefault();
+                if (!searchQuery.trim()) return;
+                window.location.href = `multimode-interface.html?q=${encodeURIComponent(searchQuery)}`;
+            }
+
+            return (
+                <div className="app">
+                    <aside className="sidebar">
+                        <div className="logo">
+                            <span className="material-icons">dns</span>
+                            Content Library
+                        </div>
+                        <div className="platform-selector">
+                            <select value={selectedPlatform} onChange={e => setSelectedPlatform(e.target.value)}>
+                                {platforms.map(p => (
+                                    <option key={p.value} value={p.value}>{p.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <nav className="nav-section">
+                            <div className="nav-label">Views</div>
+                            <a href="dashboard-portfolio.html" className="nav-item">
+                                <span className="material-icons">account_balance</span>
+                                Portfolio
+                            </a>
+                            <a href="dashboard-platform.html" className="nav-item active">
+                                <span className="material-icons">dns</span>
+                                Platform
+                            </a>
+                            <a href="dashboard-topic.html" className="nav-item">
+                                <span className="material-icons">category</span>
+                                Topics
+                            </a>
+                            <a href="dashboard-content.html" className="nav-item">
+                                <span className="material-icons">article</span>
+                                Content
+                            </a>
+                        </nav>
+
+                        <nav className="nav-section">
+                            <div className="nav-label">Tools</div>
+                            <a href="multimode-interface.html" className="nav-item">
+                                <span className="material-icons">smart_toy</span>
+                                AI Assistant
+                            </a>
+                            <a href="pages-analyse.html" className="nav-item">
+                                <span className="material-icons">compare</span>
+                                Similarity
+                            </a>
+                        </nav>
+                    </aside>
+
+                    <main className="main">
+                        <header className="header">
+                            <div className="header-left">
+                                <div>
+                                    <h1>Platform Dashboard</h1>
+                                    <div className="header-subtitle">{selectedPlatform}</div>
+                                </div>
+                            </div>
+                            <div className="header-actions">
+                                <button className="btn btn-secondary">
+                                    <span className="material-icons">notifications</span>
+                                    Alerts
+                                    {alerts.length > 0 && <span className="badge-count">{alerts.length}</span>}
+                                </button>
+                                <a href="dashboard-portfolio.html" className="btn btn-secondary">
+                                    <span className="material-icons">account_balance</span>
+                                    Portfolio View
+                                </a>
+                                <button className="btn btn-primary">
+                                    <span className="material-icons">share</span>
+                                    Share Report
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="content">
+                            {loading ? (
+                                <div className="loading">
+                                    <div className="spinner"></div>
+                                    Loading platform data...
+                                </div>
+                            ) : (
+                                <>
+                                    <form className="search-bar" onSubmit={handleSearch}>
+                                        <span className="material-icons" style={{color: '#71767b'}}>search</span>
+                                        <input
+                                            type="text"
+                                            placeholder="Search topics & content... (AI assisted)"
+                                            value={searchQuery}
+                                            onChange={e => setSearchQuery(e.target.value)}
+                                        />
+                                        <span className="ai-badge">AI</span>
+                                    </form>
+
+                                    <div className="metrics-grid">
+                                        <div className="metric-card">
+                                            <div className="metric-label">Pages</div>
+                                            <div className="metric-value">{metrics.pages}</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">Topics</div>
+                                            <div className="metric-value">{metrics.topics}</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">Health</div>
+                                            <div className="metric-value">{metrics.health}%</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">SEO/AI</div>
+                                            <div className="metric-value">{metrics.seoAi}%</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">Watchlist</div>
+                                            <div className="metric-value">{metrics.watchlist}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid-3col">
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Topics</span>
+                                                <a href="dashboard-topic.html" className="contact-link">View all</a>
+                                            </div>
+                                            <div className="card-body">
+                                                <ul className="topic-list">
+                                                    {topics.map(topic => (
+                                                        <li key={topic.id} className="topic-item" onClick={() => window.location.href = 'dashboard-topic.html'}>
+                                                            <div className="topic-info">
+                                                                <div className="topic-name">{topic.name}</div>
+                                                                <div className="topic-meta">
+                                                                    <span>{topic.pages} pages</span>
+                                                                    {topic.overlap && <span className="overlap-indicator">{topic.overlap}</span>}
+                                                                    {topic.hasFragment && <span className="fragment-badge">Fragment available</span>}
+                                                                    {topic.needsReview && <span style={{color: '#f4212e'}}>Needs review</span>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="topic-metrics">
+                                                                <span className={`health-badge ${getHealthClass(topic.health)}`}>
+                                                                    {topic.health}%
+                                                                </span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Watchlist</span>
+                                            </div>
+                                            <div className="card-body">
+                                                {watchlist.map(item => (
+                                                    <div key={item.id} className="watchlist-item">
+                                                        <span className="material-icons">star</span>
+                                                        <span className="watchlist-title">{item.title}</span>
+                                                        <span className="material-icons watchlist-action">more_vert</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Content Owners</span>
+                                            </div>
+                                            <div className="card-body">
+                                                {contacts.map(contact => (
+                                                    <div key={contact.id} className="contact-item">
+                                                        <div className="contact-avatar">{contact.initials}</div>
+                                                        <div className="contact-info">
+                                                            <div className="contact-name">{contact.name}</div>
+                                                            <div className="contact-role">{contact.role}</div>
+                                                        </div>
+                                                        <a href="#" className="contact-link">Contact</a>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid-2col">
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Topics by Health</span>
+                                            </div>
+                                            <div className="card-body">
+                                                <div className="chart-container">
+                                                    <canvas ref={chartRef}></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="card">
+                                            <div className="card-header">
+                                                <span className="card-title">Alerts</span>
+                                                {alerts.length > 0 && <span className="badge-count">{alerts.length}</span>}
+                                            </div>
+                                            <div className="card-body">
+                                                {alerts.length === 0 ? (
+                                                    <p style={{color: '#71767b', textAlign: 'center', padding: '1rem'}}>
+                                                        No alerts at this time
+                                                    </p>
+                                                ) : (
+                                                    alerts.map((alert, i) => (
+                                                        <div key={i} className={`alert-item ${alert.type}`}>
+                                                            <span className="material-icons">
+                                                                {alert.type === 'error' ? 'error' : alert.type === 'warning' ? 'warning' : 'info'}
+                                                            </span>
+                                                            <span className="alert-text">{alert.message}</span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                            <a href="#" className="view-all">View all alerts</a>
+                                        </div>
+                                    </div>
+
+                                    <div className="card">
+                                        <div className="card-header">
+                                            <span className="card-title">Top Queries</span>
+                                        </div>
+                                        <div className="card-body">
+                                            <ul className="seo-queries">
+                                                <li className="seo-query-item">
+                                                    <span className="seo-query-text">carer payment eligibility</span>
+                                                    <span className="seo-query-volume">2.4k/mo</span>
+                                                </li>
+                                                <li className="seo-query-item">
+                                                    <span className="seo-query-text">carer allowance how much</span>
+                                                    <span className="seo-query-volume">1.8k/mo</span>
+                                                </li>
+                                                <li className="seo-query-item">
+                                                    <span className="seo-query-text">respite care for carers</span>
+                                                    <span className="seo-query-volume">890/mo</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

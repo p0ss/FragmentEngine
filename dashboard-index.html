@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Library - Dashboard Prototype</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .header {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .badge {
+            background: rgba(0,212,255,0.2);
+            color: #00d4ff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+        .intro {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .intro h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .intro p {
+            color: rgba(255,255,255,0.7);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .dashboard-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 1rem;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(0,212,255,0.5);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.75rem;
+        }
+        .card-icon.portfolio { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .card-icon.platform { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .card-icon.topic { background: linear-gradient(135deg, #fc4a1a, #f7b733); }
+        .card-icon.content { background: linear-gradient(135deg, #00d4ff, #0099cc); }
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .card-persona {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        .card-description {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .card-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .feature-tag {
+            background: rgba(255,255,255,0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.8);
+        }
+        .tools-section {
+            margin-top: 3rem;
+            padding-top: 3rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .tools-section h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: rgba(255,255,255,0.9);
+        }
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .tool-link {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s;
+        }
+        .tool-link:hover {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .tool-link .material-icons { font-size: 1.25rem; opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Content Library</h1>
+        <span class="badge">Prototype</span>
+    </header>
+
+    <div class="container">
+        <div class="intro">
+            <h2>Dashboard Prototypes</h2>
+            <p>Explore different views designed for various user personas across the government content ecosystem.</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <a href="dashboard-portfolio.html" class="dashboard-card">
+                <div class="card-icon portfolio">
+                    <span class="material-icons">account_balance</span>
+                </div>
+                <h3 class="card-title">Portfolio Dashboard</h3>
+                <div class="card-persona">Executive / Portfolio Owner</div>
+                <p class="card-description">
+                    High-level view across multiple platforms. Monitor health scores,
+                    content overlap, and SEO/AI visibility across your portfolio.
+                </p>
+                <div class="card-features">
+                    <span class="feature-tag">AI Search</span>
+                    <span class="feature-tag">Health Metrics</span>
+                    <span class="feature-tag">Platform Overview</span>
+                    <span class="feature-tag">Alerts</span>
+                </div>
+            </a>
+
+            <a href="dashboard-platform.html" class="dashboard-card">
+                <div class="card-icon platform">
+                    <span class="material-icons">dns</span>
+                </div>
+                <h3 class="card-title">Platform Dashboard</h3>
+                <div class="card-persona">Site Manager / Website Owner</div>
+                <p class="card-description">
+                    Manage a single platform's content. View topics, monitor health,
+                    track your watchlist, and discover content overlap with other sites.
+                </p>
+                <div class="card-features">
+                    <span class="feature-tag">Topics View</span>
+                    <span class="feature-tag">Watchlist</span>
+                    <span class="feature-tag">SEO Status</span>
+                    <span class="feature-tag">Contacts</span>
+                </div>
+            </a>
+
+            <a href="dashboard-topic.html" class="dashboard-card">
+                <div class="card-icon topic">
+                    <span class="material-icons">category</span>
+                </div>
+                <h3 class="card-title">Topic Dashboard</h3>
+                <div class="card-persona">Topic Steward / Content Authority</div>
+                <p class="card-description">
+                    Manage content fragments across platforms. Create, update, and
+                    distribute authoritative content to subscribers.
+                </p>
+                <div class="card-features">
+                    <span class="feature-tag">Fragments</span>
+                    <span class="feature-tag">Subscribers</span>
+                    <span class="feature-tag">Cross-Platform</span>
+                    <span class="feature-tag">Compare</span>
+                </div>
+            </a>
+
+            <a href="dashboard-content.html" class="dashboard-card">
+                <div class="card-icon content">
+                    <span class="material-icons">article</span>
+                </div>
+                <h3 class="card-title">Content Dashboard</h3>
+                <div class="card-persona">Content Editor / Publisher</div>
+                <p class="card-description">
+                    Edit and publish content pages. Use fragments, track changes,
+                    preview drafts, and seek feedback from stakeholders.
+                </p>
+                <div class="card-features">
+                    <span class="feature-tag">Fragment Actions</span>
+                    <span class="feature-tag">Draft Preview</span>
+                    <span class="feature-tag">Change History</span>
+                    <span class="feature-tag">Feedback</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="tools-section">
+            <h3>Additional Tools</h3>
+            <div class="tools-grid">
+                <a href="multimode-interface.html" class="tool-link">
+                    <span class="material-icons">smart_toy</span>
+                    AI Chat Interface
+                </a>
+                <a href="pages-analyse.html" class="tool-link">
+                    <span class="material-icons">compare</span>
+                    Page Similarity Analysis
+                </a>
+                <a href="index.html" class="tool-link">
+                    <span class="material-icons">search</span>
+                    Fragment Search
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
