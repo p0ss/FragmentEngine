@@ -476,12 +476,14 @@
       const per_page = 250;
       let page = 1;
       const out = [];
+      // Host filtering done client-side since Typesense doesn't support URL wildcards
+      const hostMatch = hostFilter ? hostFilter.toLowerCase() : null;
 
       while (out.length < limit) {
         if (statusFn) statusFn(`Loading: ${out.length} fragments...`);
 
         const filters = [];
-        if (hostFilter) filters.push(`url:*${hostFilter}*`);
+        // Category filter works in Typesense
         if (categories.length > 0) {
           const cats = categories.map(c => `"${c.replace(/"/g, '\\"')}"`);
           filters.push(`categories:=[${cats.join(',')}]`);
@@ -499,9 +501,22 @@
         const data = await tsSearch(collection, params);
         const hits = data.hits || [];
         if (!hits.length) break;
-        hits.forEach(h => out.push(h.document));
+
+        // Filter by host client-side
+        for (const h of hits) {
+          const doc = h.document;
+          if (hostMatch) {
+            const docHost = hostOf(doc.url || '').toLowerCase();
+            if (!docHost.includes(hostMatch)) continue;
+          }
+          out.push(doc);
+        }
+
         if (data.found <= page * per_page) break;
         page++;
+
+        // Early exit if we have enough matching fragments
+        if (out.length >= limit) break;
       }
       return out.slice(0, limit);
     }
