@@ -4,6 +4,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// Try to load taxonomy module, but provide fallback if not available
+let loadLifeEventsGraph = null;
+
 const taxonomyModulePath = (() => {
   const candidates = [
     process.env.SCRAPER_TAXONOMIES_PATH,
@@ -17,10 +20,22 @@ const taxonomyModulePath = (() => {
     }
   }
 
-  return candidates[0];
+  return null;
 })();
 
-const { loadLifeEventsGraph } = require(taxonomyModulePath);
+if (taxonomyModulePath) {
+  try {
+    const taxModule = require(taxonomyModulePath);
+    loadLifeEventsGraph = taxModule.loadLifeEventsGraph;
+  } catch (e) {
+    console.warn('Could not load taxonomy module:', e.message);
+  }
+}
+
+// Fallback if taxonomy module not available
+if (!loadLifeEventsGraph) {
+  loadLifeEventsGraph = () => ({ nodes: [], edges: [] });
+}
 
 class RelationalQueries {
   constructor(typesenseClient) {

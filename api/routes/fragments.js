@@ -25,33 +25,27 @@ router.get('/search', async (req, res) => {
     const filterBy = [];
     const quote = (v) => `\"${String(v).replace(/\"/g, '\\"')}\"`;
     
-    // Life event filtering now requires relational lookup
+    // Life event filtering requires relational lookup through content_pages
+    // Limit URLs to avoid exceeding Typesense's 4000 char query limit
+    const MAX_PAGE_URLS = 30; // Keep filter under ~3000 chars
     let pageUrls = [];
+    let lifeEventTotalPages = 0;
     if (life_event) {
-      // First get pages with this life event (Typesense max per_page is 250)
-      const rq = new RelationalQueries(req.app.locals.typesense);
-      const perPage = 250;
-      let page = 1;
-      let found = 0;
-      const allHits = [];
+      // Get pages with this life event (limited to avoid query length issues)
+      const pageResult = await req.app.locals.typesense
+        .collections('content_pages')
+        .documents()
+        .search({
+          q: '*',
+          filter_by: `life_events:=[${quote(life_event)}]`,
+          include_fields: 'url',
+          per_page: MAX_PAGE_URLS,
+          page: 1
+        });
 
-      do {
-        const pageResult = await req.app.locals.typesense
-          .collections('content_pages')
-          .documents()
-          .search({
-            q: '*',
-            filter_by: `life_events:=[${quote(life_event)}]`,
-            include_fields: 'url',
-            per_page: perPage,
-            page
-          });
-        found = pageResult.found || 0;
-        allHits.push(...pageResult.hits);
-        page += 1;
-      } while (allHits.length < found && page <= 100);
+      lifeEventTotalPages = pageResult.found || 0;
+      pageUrls = (pageResult.hits || []).map(h => h.document.url);
 
-      pageUrls = allHits.map(h => h.document.url);
       if (pageUrls.length > 0) {
         filterBy.push(`page_url:[${pageUrls.map(url => quote(url)).join(',')}]`);
       } else {

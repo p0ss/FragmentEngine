@@ -3,53 +3,272 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pages Analyse (Browser)</title>
+  <title>Fragment Similarity Analysis</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 16px; background: #0b0f14; color: #e6edf3; }
-    header { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-    input, select, button { padding: 8px; background: #0f1720; color: #e6edf3; border: 1px solid #233041; border-radius: 6px; }
-    button { cursor: pointer; }
-    .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f5;
+      color: #1f2933;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1976d2;
+      margin-bottom: 1rem;
+    }
+    .controls {
+      background: #ffffff;
+      border: 1px solid #e6eef7;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 12px rgba(25, 118, 210, 0.08);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    input, select {
+      padding: 10px 12px;
+      background: #f8fafc;
+      color: #1f2933;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #1976d2;
+      box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+    }
+    button {
+      padding: 10px 20px;
+      background: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    button:hover { background: #1565c0; }
+    button:disabled { background: #90caf9; cursor: not-allowed; }
+    .btn-secondary {
+      background: #ffffff;
+      color: #1976d2;
+      border: 1px solid #1976d2;
+    }
+    .btn-secondary:hover { background: #e3f2fd; }
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #status {
+      padding: 12px 16px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      color: #1565c0;
+      font-size: 14px;
+    }
+    #status:empty { display: none; }
     #results { margin-top: 12px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #1f2937; padding: 6px; font-size: 13px; }
-    th { cursor: pointer; user-select: none; }
-    th:hover { background: #1a2332; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(25, 118, 210, 0.08);
+    }
+    th, td {
+      border-bottom: 1px solid #e6eef7;
+      padding: 12px;
+      font-size: 13px;
+      text-align: left;
+    }
+    th {
+      background: #f8fafc;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      color: #546e7a;
+    }
+    th:hover { background: #e3f2fd; }
     th .sort-icon { margin-left: 4px; opacity: 0.5; }
     th.sorted .sort-icon { opacity: 1; }
-    a { color: #60a5fa; text-decoration: none; }
+    tbody tr:hover { background: #f8fafc; }
+    a { color: #1976d2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .fragment-title {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .view-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #1976d2;
+    }
+    .view-btn:hover { background: #bbdefb; text-decoration: none; }
+    .view-btn .material-icons { font-size: 14px; }
+    .score-cell {
+      font-family: monospace;
+      font-weight: 500;
+    }
+    .score-high { color: #d32f2f; }
+    .score-med { color: #f57c00; }
+    .score-low { color: #388e3c; }
+
+    /* Fragment preview modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 1rem;
+      max-width: 800px;
+      max-height: 80vh;
+      width: 90%;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #e6eef7;
+      background: #f8fafc;
+    }
+    .modal-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1f2933;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      color: #546e7a;
+    }
+    .modal-close:hover { color: #1976d2; }
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+    .modal-body .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+    .modal-body .meta-tag {
+      background: #e3f2fd;
+      padding: 4px 10px;
+      border-radius: 1rem;
+      font-size: 12px;
+      color: #1565c0;
+    }
+    .modal-body .content-preview {
+      background: #f8fafc;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e6eef7;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
-  <h2>Pages Analyse (Browser → Typesense direct)</h2>
-  <div class="row">
-    <input id="ts_base" placeholder="Typesense base" value="/typesense" />
-    <input id="ts_key" placeholder="Typesense API key" value="your-secure-api-key-here" />
-    <input id="site_a" placeholder="Site A (e.g., servicesaustralia.gov.au)" value="servicesaustralia.gov.au" />
-    <input id="site_b" placeholder="Site B (e.g., my.gov.au)" value="my.gov.au" />
-  </div>
-  <div class="row">
-    <select id="metric">
-      <option value="combined">metric: combined</option>
-      <option value="tags">metric: tags</option>
-      <option value="embedding">metric: embedding</option>
-      <option value="link">metric: link</option>
-    </select>
-    <input id="threshold" type="number" step="0.01" min="0" max="1" value="0.4" />
-    <input id="max_pairs" type="number" step="100" min="100" value="50000" />
-    <div style="display:flex;gap:8px">
-      <button id="run">Run similarity</button>
-      <button id="export_csv">Download CSV</button>
-      <button id="export_graph">Download link graph JSON</button>
-      <button id="build_pages">Build content_pages in Typesense</button>
+  <h2>Fragment Similarity Analysis</h2>
+
+  <div class="controls">
+    <div class="row">
+      <input id="ts_base" placeholder="Typesense base URL" value="/typesense" />
+      <input id="ts_key" placeholder="Typesense API key" value="your-secure-api-key-here" />
+      <input id="site_a" placeholder="Site A (e.g., servicesaustralia.gov.au)" value="servicesaustralia.gov.au" />
+      <input id="site_b" placeholder="Site B (e.g., my.gov.au)" value="my.gov.au" />
+    </div>
+    <div class="row">
+      <select id="metric">
+        <option value="combined">Metric: Combined</option>
+        <option value="tags">Metric: Tags only</option>
+        <option value="embedding">Metric: Embedding only</option>
+      </select>
+      <input id="threshold" type="number" step="0.01" min="0" max="1" value="0.5" placeholder="Threshold" />
+      <input id="max_pairs" type="number" step="100" min="100" value="10000" placeholder="Max pairs" />
+      <input id="max_fragments" type="number" step="1000" min="1000" value="50000" placeholder="Max fragments to load" />
+    </div>
+    <div class="button-row">
+      <button id="run">Run Fragment Similarity</button>
+      <button id="export_csv" class="btn-secondary">Download CSV</button>
     </div>
   </div>
+
   <div id="status"></div>
   <div id="results"></div>
 
+  <!-- Fragment Preview Modal -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Fragment Preview</h3>
+        <button class="modal-close" onclick="closeModal()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="meta" id="modal-meta"></div>
+        <div class="content-preview" id="modal-content"></div>
+      </div>
+      <div class="modal-footer">
+        <a id="modal-link" href="#" target="_blank" class="view-btn">
+          <span class="material-icons">open_in_new</span>
+          Open Source Page
+        </a>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // Fragment cache for modal preview
+    const fragmentCache = new Map();
+
     function tsBase() { return document.getElementById('ts_base').value.trim() || '/typesense'; }
     function tsKey() { return document.getElementById('ts_key').value.trim() || 'your-secure-api-key-here'; }
+
     async function tsSearch(collection, params) {
       const query = new URLSearchParams(params).toString();
       const res = await fetch(`${tsBase()}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
@@ -62,34 +281,185 @@
       }
       return await res.json();
     }
-    async function tsFetchAll(collection, fields, limit=50000) {
-      const per_page = 250; let page = 1; const out = [];
+
+    async function tsFetchAll(collection, fields, limit=50000, statusFn=null) {
+      const per_page = 250;
+      let page = 1;
+      const out = [];
       while (out.length < limit) {
+        if (statusFn) statusFn(`Loading ${collection}: ${out.length} documents...`);
         let data;
         try {
-          data = await tsSearch(collection, { q:'*', query_by:'title', include_fields: fields.join(','), per_page, page });
+          data = await tsSearch(collection, {
+            q: '*',
+            query_by: 'title',
+            include_fields: fields.join(','),
+            per_page,
+            page
+          });
         } catch (e) {
-          if ((e && (e.status === 404 || String(e.message||'').includes('HTTP 404')))) {
-            // Collection not found; return whatever we have (likely empty) so caller can fallback
+          if (e && (e.status === 404 || String(e.message||'').includes('HTTP 404'))) {
             return out;
           }
           throw e;
         }
-        const hits = data.hits || []; if (!hits.length) break;
+        const hits = data.hits || [];
+        if (!hits.length) break;
         hits.forEach(h => out.push(h.document));
-        if (data.found <= page * per_page) break; page++;
+        if (data.found <= page * per_page) break;
+        page++;
       }
       return out.slice(0, limit);
     }
-    function baseUrl(u){ try{ const x=new URL(u); x.hash=''; x.search=''; return x.toString(); } catch{ return (u||'').split('#')[0]; } }
-    function hostOf(u){ try{ return new URL(u).hostname; } catch{ return ''; } }
-    function tokens(s){ return (s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean); }
-    function buildHashedEmbedding(text, dim=256){ const v=new Array(dim).fill(0); for(const t of tokens(text)){ let h=2166136261; for(let i=0;i<t.length;i++){ h^=t.charCodeAt(i); h=(h*16777619)>>>0; } v[h%dim]++; } const n=Math.sqrt(v.reduce((s,x)=>s+x*x,0))||1; return v.map(x=>x/n); }
-    function jaccard(a,b){ if(!a.size && !b.size) return 1; let inter=0; for(const x of a) if(b.has(x)) inter++; const u=a.size+b.size-inter; return u? inter/u : 0; }
-    function cosine(a,b){ if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length||!a.length) return 0; let dot=0,na=0,nb=0; for(let i=0;i<a.length;i++){ const x=a[i]||0,y=b[i]||0; dot+=x*y; na+=x*x; nb+=y*y; } return (!na||!nb)?0:dot/Math.sqrt(na*nb); }
-    function aggregatePagesFromFragments(frags){ const pages=new Map(); for(const f of frags){ const p=baseUrl(f.url||''); if(!p) continue; if(!pages.has(p)) pages.set(p,{url:p,host:hostOf(p),title:undefined,fragment_ids:[],fragment_count:0,life_events:new Set(),categories:new Set(),states:new Set(),keywords:new Set(),content_text:'',out_links:new Set(),out_link_tokens:new Set(),_lvl0Counts:new Map()}); const a=pages.get(p); a.fragment_ids.push(f.id); a.fragment_count++; (f.life_events||[]).forEach(x=>a.life_events.add(x)); (f.categories||[]).forEach(x=>a.categories.add(x)); (f.states||[]).forEach(x=>a.states.add(x)); if(a.content_text.length<40000) a.content_text+=(a.content_text?'\n':'')+(f.content_text||'').slice(0,4000); (f.search_keywords||[]).forEach(k=>a.keywords.add(k)); const html=f.content_html||''; const hrefs=Array.from(html.matchAll(/href\s*=\s*"([^"]+)"/gi)).map(m=>m[1]); for(const h of hrefs){ try{ const u=new URL(h,p); if(!['http:','https:'].includes(u.protocol)) continue; const b=baseUrl(u.toString()); a.out_links.add(b); const seg=(u.pathname||'/').split('/').filter(Boolean)[0]||''; const host=(u.hostname||'').toLowerCase(); if(host) a.out_link_tokens.add(host); if(host&&seg) a.out_link_tokens.add(`${host}/${seg.toLowerCase()}`);}catch{}} } const docs=[]; for(const a of pages.values()){ if(a._lvl0Counts.size) a.title=Array.from(a._lvl0Counts.entries()).sort((x,y)=>y[1]-x[1])[0][0]; docs.push({url:a.url,host:a.host,title:a.title,fragment_count:a.fragment_count,life_events:Array.from(a.life_events),categories:Array.from(a.categories),states:Array.from(a.states),keywords:Array.from(a.keywords),embedding:buildHashedEmbedding(a.content_text||'',256),out_links:Array.from(a.out_links),out_link_tokens:Array.from(a.out_link_tokens)}); } return docs; }
-    function computePairs(A,B,metric,threshold,maxPairs){ const idxTag=new Map(),idxKey=new Map(),idxLink=new Map(); const nrm=s=>String(s||'').toLowerCase(); for(let i=0;i<B.length;i++){ const d=B[i]; const tags=new Set([...(d.life_events||[]),...(d.categories||[])]); for(const t of tags){ const k=nrm(t); if(!idxTag.has(k)) idxTag.set(k,new Set()); idxTag.get(k).add(i);} for(const k of (d.keywords||[])){ const kk=nrm(k); if(!idxKey.has(kk)) idxKey.set(kk,new Set()); idxKey.get(kk).add(i);} for(const t of (d.out_link_tokens||[])){ const kk=nrm(t); if(!idxLink.has(kk)) idxLink.set(kk,new Set()); idxLink.get(kk).add(i);} } const pairs=[]; const seen=new Set(); for(const a of A){ const cand=new Set(); const aTags=new Set([...(a.life_events||[]),...(a.categories||[])]); for(const t of aTags){ const s=idxTag.get(nrm(t)); if(s) s.forEach(i=>cand.add(i)); } let c1=0; for(const k of (a.keywords||[])){ if(c1>=25) break; const s=idxKey.get(nrm(k)); if(s){ s.forEach(i=>cand.add(i)); c1++; } } let c2=0; const aLinks=new Set(a.out_link_tokens||[]); for(const t of aLinks){ if(c2>=25) break; const s=idxLink.get(nrm(t)); if(s){ s.forEach(i=>cand.add(i)); c2++; } } for(const i of cand){ const b=B[i]; const key=a.url+'|'+b.url; if(seen.has(key)) continue; seen.add(key); const bTags=new Set([...(b.life_events||[]),...(b.categories||[])]); const tagSim=jaccard(aTags,bTags); const embSim=(Array.isArray(a.embedding)&&Array.isArray(b.embedding))?cosine(a.embedding,b.embedding):0; const linkSim=jaccard(aLinks,new Set(b.out_link_tokens||[])); let score; if(metric==='tags') score=tagSim; else if(metric==='embedding') score=embSim; else if(metric==='link') score=linkSim; else score=0.5*tagSim+0.3*embSim+0.2*linkSim; if(score>=threshold) pairs.push({a,b,score,tagSim,embSim,linkSim}); } } pairs.sort((x,y)=>y.score-x.score); return pairs.slice(0,maxPairs); }
-    function toCSV(rows){ if(!rows.length) return ''; const headers=Object.keys(rows[0]); const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"'; const out=[headers.map(esc).join(',')]; for(const r of rows){ out.push(headers.map(h=>esc(r[h])).join(',')); } return out.join('\n'); }
+
+    function hostOf(u) {
+      try { return new URL(u).hostname; }
+      catch { return ''; }
+    }
+
+    function tokens(s) {
+      return (s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);
+    }
+
+    // Build a hashed embedding for fragment content
+    function buildHashedEmbedding(text, dim=256) {
+      const v = new Array(dim).fill(0);
+      for (const t of tokens(text)) {
+        let h = 2166136261;
+        for (let i = 0; i < t.length; i++) {
+          h ^= t.charCodeAt(i);
+          h = (h * 16777619) >>> 0;
+        }
+        v[h % dim]++;
+      }
+      const n = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
+      return v.map(x => x / n);
+    }
+
+    function jaccard(a, b) {
+      if (!a.size && !b.size) return 1;
+      let inter = 0;
+      for (const x of a) if (b.has(x)) inter++;
+      const u = a.size + b.size - inter;
+      return u ? inter / u : 0;
+    }
+
+    function cosine(a, b) {
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || !a.length) return 0;
+      let dot = 0, na = 0, nb = 0;
+      for (let i = 0; i < a.length; i++) {
+        const x = a[i] || 0, y = b[i] || 0;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
+      }
+      return (!na || !nb) ? 0 : dot / Math.sqrt(na * nb);
+    }
+
+    // Prepare fragments with embeddings
+    function prepareFragments(frags) {
+      return frags.map(f => ({
+        id: f.id,
+        url: f.url || '',
+        title: f.title || f.hierarchy_lvl0 || 'Untitled',
+        host: hostOf(f.url || ''),
+        categories: new Set(f.categories || []),
+        content_text: f.content_text || '',
+        embedding: buildHashedEmbedding(f.content_text || '', 256),
+        hierarchy_lvl0: f.hierarchy_lvl0,
+        hierarchy_lvl1: f.hierarchy_lvl1,
+        provider: f.provider
+      }));
+    }
+
+    // Build inverted index for faster candidate lookup
+    function buildIndex(fragments) {
+      const idxCat = new Map();
+      const nrm = s => String(s || '').toLowerCase();
+
+      for (let i = 0; i < fragments.length; i++) {
+        const f = fragments[i];
+        for (const cat of f.categories) {
+          const k = nrm(cat);
+          if (!idxCat.has(k)) idxCat.set(k, new Set());
+          idxCat.get(k).add(i);
+        }
+      }
+      return { idxCat };
+    }
+
+    // Compute similar pairs between two sets of fragments
+    function computePairs(A, B, metric, threshold, maxPairs, statusFn) {
+      const { idxCat } = buildIndex(B);
+      const nrm = s => String(s || '').toLowerCase();
+
+      const pairs = [];
+      const seen = new Set();
+      let processed = 0;
+
+      for (const a of A) {
+        processed++;
+        if (processed % 500 === 0 && statusFn) {
+          statusFn(`Computing pairs: ${processed}/${A.length} fragments, ${pairs.length} pairs found...`);
+        }
+
+        // Find candidates from B that share categories
+        const cand = new Set();
+        for (const cat of a.categories) {
+          const s = idxCat.get(nrm(cat));
+          if (s) s.forEach(i => cand.add(i));
+        }
+
+        // If no category overlap, sample some random candidates for embedding comparison
+        if (cand.size === 0 && metric !== 'tags') {
+          // Add some random samples for embedding-only matching
+          for (let i = 0; i < Math.min(50, B.length); i++) {
+            cand.add(Math.floor(Math.random() * B.length));
+          }
+        }
+
+        for (const i of cand) {
+          const b = B[i];
+          if (!b) continue;
+
+          // Skip same fragment or same URL
+          if (a.id === b.id || a.url === b.url) continue;
+
+          const key = a.id + '|' + b.id;
+          const keyRev = b.id + '|' + a.id;
+          if (seen.has(key) || seen.has(keyRev)) continue;
+          seen.add(key);
+
+          const tagSim = jaccard(a.categories, b.categories);
+          const embSim = cosine(a.embedding, b.embedding);
+
+          let score;
+          if (metric === 'tags') score = tagSim;
+          else if (metric === 'embedding') score = embSim;
+          else score = 0.4 * tagSim + 0.6 * embSim;
+
+          if (score >= threshold) {
+            pairs.push({ a, b, score, tagSim, embSim });
+          }
+        }
+
+        if (pairs.length >= maxPairs) break;
+      }
+
+      pairs.sort((x, y) => y.score - x.score);
+      return pairs.slice(0, maxPairs);
+    }
+
+    function toCSV(rows) {
+      if (!rows.length) return '';
+      const headers = Object.keys(rows[0]);
+      const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const out = [headers.map(esc).join(',')];
+      for (const r of rows) {
+        out.push(headers.map(h => esc(r[h])).join(','));
+      }
+      return out.join('\n');
+    }
 
     let lastPairs = [];
 
@@ -97,25 +467,44 @@
       const siteA = document.getElementById('site_a').value.trim();
       const siteB = document.getElementById('site_b').value.trim();
       const metric = document.getElementById('metric').value;
-      const threshold = parseFloat(document.getElementById('threshold').value || '0.4');
-      const maxPairs = parseInt(document.getElementById('max_pairs').value || '50000', 10);
+      const threshold = parseFloat(document.getElementById('threshold').value || '0.5');
+      const maxPairs = parseInt(document.getElementById('max_pairs').value || '10000', 10);
+      const maxFragments = parseInt(document.getElementById('max_fragments').value || '50000', 10);
       const status = document.getElementById('status');
-      status.textContent = 'Loading…';
+      const runBtn = document.getElementById('run');
+
+      runBtn.disabled = true;
+      status.textContent = 'Loading fragments...';
+
       try {
-        let pages = await tsFetchAll('content_pages', ['url','host','title','life_events','categories','states','keywords','embedding','out_links','out_link_tokens','fragment_count'], 100000);
-        if (!pages || pages.length === 0) {
-          status.textContent = 'content_pages missing or empty, falling back to content_fragments…';
-          const frags = await tsFetchAll('content_fragments', ['id','url','title','content_text','content_html','life_events','categories','states','hierarchy_lvl0','search_keywords'], 200000);
-          if (!frags || frags.length === 0) throw new Error('No content_pages or content_fragments available in Typesense');
-          pages = aggregatePagesFromFragments(frags);
+        const fields = ['id', 'url', 'title', 'content_text', 'categories', 'hierarchy_lvl0', 'hierarchy_lvl1', 'provider'];
+        const frags = await tsFetchAll('content_fragments', fields, maxFragments, msg => status.textContent = msg);
+
+        if (!frags || frags.length === 0) {
+          throw new Error('No content_fragments found in Typesense');
         }
-        const A = pages.filter(d => (hostOf(d.url)||'').endsWith(siteA));
-        const B = pages.filter(d => (hostOf(d.url)||'').endsWith(siteB));
-        lastPairs = computePairs(A, B, metric, threshold, maxPairs);
+
+        status.textContent = `Preparing ${frags.length} fragments...`;
+
+        // Cache fragments for modal preview
+        frags.forEach(f => fragmentCache.set(f.id, f));
+
+        const prepared = prepareFragments(frags);
+
+        const A = prepared.filter(f => f.host.endsWith(siteA));
+        const B = prepared.filter(f => f.host.endsWith(siteB));
+
+        status.textContent = `Comparing ${A.length} fragments from ${siteA} with ${B.length} from ${siteB}...`;
+
+        lastPairs = computePairs(A, B, metric, threshold, maxPairs, msg => status.textContent = msg);
+
         renderTable(lastPairs.slice(0, 200));
-        status.textContent = `Pairs: ${lastPairs.length} (showing top 200)`;
+        status.textContent = `Found ${lastPairs.length} similar fragment pairs (showing top 200). Threshold: ${threshold}, Metric: ${metric}`;
       } catch (e) {
         status.textContent = 'Error: ' + e.message;
+        console.error(e);
+      } finally {
+        runBtn.disabled = false;
       }
     }
 
@@ -124,12 +513,11 @@
     let sortAsc = false;
 
     const columns = [
-      { key: 'pageA', label: 'Page A', getValue: p => (p.a.title || p.a.url).toLowerCase() },
-      { key: 'pageB', label: 'Page B', getValue: p => (p.b.title || p.b.url).toLowerCase() },
+      { key: 'fragA', label: 'Fragment A', getValue: p => (p.a.title || '').toLowerCase() },
+      { key: 'fragB', label: 'Fragment B', getValue: p => (p.b.title || '').toLowerCase() },
       { key: 'score', label: 'Score', getValue: p => p.score },
       { key: 'tagSim', label: 'Tags', getValue: p => p.tagSim },
       { key: 'embSim', label: 'Embed', getValue: p => p.embSim },
-      { key: 'linkSim', label: 'Link', getValue: p => p.linkSim },
     ];
 
     function sortPairs(pairs, colKey, asc) {
@@ -143,155 +531,131 @@
       });
     }
 
+    function scoreClass(score) {
+      if (score >= 0.8) return 'score-high';
+      if (score >= 0.6) return 'score-med';
+      return 'score-low';
+    }
+
     function renderTable(pairs, preserveSort = false) {
       const el = document.getElementById('results');
-      if (!pairs.length) { el.innerHTML = '<em>No results</em>'; return; }
+      if (!pairs.length) {
+        el.innerHTML = '<p style="padding: 2rem; text-align: center; color: #607d8b;">No similar fragments found. Try lowering the threshold.</p>';
+        return;
+      }
       currentPairs = pairs;
       if (!preserveSort) { sortColumn = 'score'; sortAsc = false; }
       const sorted = sortPairs(pairs, sortColumn, sortAsc);
+
       const rows = sorted.map(p => `
         <tr>
-          <td><a href="${p.a.url}" target="_blank">${p.a.title || p.a.url}</a></td>
-          <td><a href="${p.b.url}" target="_blank">${p.b.title || p.b.url}</a></td>
-          <td>${p.score.toFixed(3)}</td>
-          <td>${p.tagSim.toFixed(3)}</td>
-          <td>${p.embSim.toFixed(3)}</td>
-          <td>${p.linkSim.toFixed(3)}</td>
+          <td>
+            <div class="fragment-title">${escHtml(p.a.title || p.a.url)}</div>
+            <button class="view-btn" onclick="showFragment('${p.a.id}')">
+              <span class="material-icons">visibility</span> View
+            </button>
+          </td>
+          <td>
+            <div class="fragment-title">${escHtml(p.b.title || p.b.url)}</div>
+            <button class="view-btn" onclick="showFragment('${p.b.id}')">
+              <span class="material-icons">visibility</span> View
+            </button>
+          </td>
+          <td class="score-cell ${scoreClass(p.score)}">${p.score.toFixed(3)}</td>
+          <td class="score-cell">${p.tagSim.toFixed(3)}</td>
+          <td class="score-cell">${p.embSim.toFixed(3)}</td>
         </tr>`).join('');
+
       const headers = columns.map(c => {
         const isSorted = sortColumn === c.key;
         const icon = isSorted ? (sortAsc ? '▲' : '▼') : '⇅';
         return `<th data-col="${c.key}" class="${isSorted ? 'sorted' : ''}">${c.label}<span class="sort-icon">${icon}</span></th>`;
       }).join('');
+
       el.innerHTML = `
         <table>
           <thead><tr>${headers}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
+
       el.querySelectorAll('th').forEach(th => {
         th.onclick = () => {
           const col = th.dataset.col;
           if (sortColumn === col) { sortAsc = !sortAsc; }
-          else { sortColumn = col; sortAsc = col === 'pageA' || col === 'pageB'; }
+          else { sortColumn = col; sortAsc = col === 'fragA' || col === 'fragB'; }
           renderTable(currentPairs, true);
         };
       });
     }
 
+    function escHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function showFragment(id) {
+      const f = fragmentCache.get(id);
+      if (!f) {
+        alert('Fragment not found in cache');
+        return;
+      }
+
+      document.getElementById('modal-title').textContent = f.title || f.hierarchy_lvl0 || 'Fragment Preview';
+
+      const meta = [];
+      if (f.provider) meta.push(`Provider: ${f.provider}`);
+      if (f.hierarchy_lvl0) meta.push(f.hierarchy_lvl0);
+      if (f.hierarchy_lvl1) meta.push(f.hierarchy_lvl1);
+      (f.categories || []).forEach(c => meta.push(c));
+
+      document.getElementById('modal-meta').innerHTML = meta.map(m =>
+        `<span class="meta-tag">${escHtml(m)}</span>`
+      ).join('');
+
+      document.getElementById('modal-content').textContent = f.content_text || '(No content)';
+      document.getElementById('modal-link').href = f.url || '#';
+
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('active');
+    }
+
+    // Close modal on overlay click
+    document.getElementById('modal-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-overlay') closeModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
     function download(name, text) {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-      a.download = name; a.click();
-    }
-
-    async function ensurePagesCollection() {
-      const base = tsBase(); const key = tsKey();
-      // check if exists
-      let exists = true;
-      try {
-        const res = await fetch(`${base}/collections/content_pages`, { headers: { 'X-TYPESENSE-API-KEY': key } });
-        if (!res.ok) exists = false;
-      } catch { exists = false; }
-      if (exists) return true;
-      // create
-      const schema = {
-        name: 'content_pages', enable_nested_fields: true,
-        fields: [
-          { name: 'crawl_version', type: 'int32' },
-          { name: 'last_seen_at', type: 'int64' },
-          { name: 'url', type: 'string', facet: true },
-          { name: 'host', type: 'string', facet: true },
-          { name: 'title', type: 'string', optional: true },
-          { name: 'content_text', type: 'string', optional: true },
-          { name: 'life_events', type: 'string[]', facet: true },
-          { name: 'categories', type: 'string[]', facet: true },
-          { name: 'states', type: 'string[]', facet: true },
-          { name: 'provider', type: 'string[]', facet: true, optional: true },
-          { name: 'governance', type: 'string[]', facet: true, optional: true },
-          { name: 'stage', type: 'string[]', facet: true, optional: true },
-          { name: 'stage_variant', type: 'string[]', facet: true, optional: true },
-          { name: 'fragment_ids', type: 'string[]' },
-          { name: 'fragment_count', type: 'int32' },
-          { name: 'keywords', type: 'string[]', optional: true },
-          { name: 'embedding', type: 'float[]', num_dim: 256, optional: true },
-          { name: 'out_links', type: 'string[]', optional: true },
-          { name: 'out_link_tokens', type: 'string[]', optional: true }
-        ]
-      };
-      const res = await fetch(`${base}/collections`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-TYPESENSE-API-KEY': key }, body: JSON.stringify(schema)
-      });
-      if (!res.ok) { const t = await res.text(); throw new Error(`Create content_pages failed: ${res.status} ${t}`); }
-      return true;
-    }
-
-    function nowSec(){ return Math.floor(Date.now()/1000); }
-    function jsonl(rows){ return rows.map(r => JSON.stringify(r)).join('\n'); }
-
-    async function buildPagesInTypesense() {
-      const status = document.getElementById('status');
-      status.textContent = 'Building content_pages: fetching fragments…';
-      const flds = ['id','url','title','content_text','content_html','life_events','categories','states','provider','governance','stage','stage_variant','hierarchy_lvl0','search_keywords'];
-      const frags = await tsFetchAll('content_fragments', flds, 200000);
-      if (!frags || frags.length === 0) { status.textContent = 'No fragments found in Typesense'; return; }
-      status.textContent = `Aggregating ${frags.length} fragments…`;
-      const pages = aggregatePagesFromFragments(frags);
-      status.textContent = `Preparing to write ${pages.length} pages…`;
-      await ensurePagesCollection();
-      // import in batches via JSONL upsert
-      const base = tsBase(); const key = tsKey();
-      const CV = nowSec(); const LS = Date.now();
-      // enrich with crawl_version/last_seen
-      for (const p of pages) { p.crawl_version = CV; p.last_seen_at = LS; }
-      for (let i=0; i<pages.length; i+=500) {
-        const batch = pages.slice(i, i+500);
-        status.textContent = `Writing pages ${i+1}-${Math.min(i+batch.length, pages.length)} of ${pages.length}…`;
-        const res = await fetch(`${base}/collections/content_pages/documents/import?action=upsert`, {
-          method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-TYPESENSE-API-KEY': key }, body: jsonl(batch)
-        });
-        if (!res.ok) { const t = await res.text(); throw new Error(`Import failed: ${res.status} ${t}`); }
-      }
-      status.textContent = `Done. Indexed ${pages.length} pages into content_pages.`;
+      a.download = name;
+      a.click();
     }
 
     async function exportCSV() {
-      if (!lastPairs.length) return alert('Run similarity first');
+      if (!lastPairs.length) return alert('Run similarity analysis first');
       const rows = lastPairs.map(p => ({
-        a_url: p.a.url, b_url: p.b.url,
-        a_title: p.a.title||'', b_title: p.b.title||'',
-        score: p.score.toFixed(3), tag_sim: p.tagSim.toFixed(3), emb_sim: p.embSim.toFixed(3), link_sim: p.linkSim.toFixed(3)
+        a_id: p.a.id,
+        a_url: p.a.url,
+        a_title: p.a.title || '',
+        b_id: p.b.id,
+        b_url: p.b.url,
+        b_title: p.b.title || '',
+        score: p.score.toFixed(3),
+        tag_sim: p.tagSim.toFixed(3),
+        emb_sim: p.embSim.toFixed(3)
       }));
-      download('pages_similarity.csv', toCSV(rows));
-    }
-
-    async function exportGraph() {
-      let pages = await tsFetchAll('content_pages', ['url','host','title','out_links'], 100000);
-      if (!pages || pages.length === 0) {
-        const frags = await tsFetchAll('content_fragments', ['id','url','title','content_text','content_html','life_events','categories','states','hierarchy_lvl0','search_keywords'], 200000);
-        if (!frags || frags.length === 0) return alert('No content_pages or content_fragments available');
-        pages = aggregatePagesFromFragments(frags);
-      }
-      const siteA = document.getElementById('site_a').value.trim();
-      const siteB = document.getElementById('site_b').value.trim();
-      const inScope = (d)=>{ const h=(hostOf(d.url)||''); return h.endsWith(siteA) || h.endsWith(siteB); };
-      const nodes = pages.filter(inScope);
-      const nodeByUrl = new Map(nodes.map(n=>[n.url,n]));
-      const edges = [];
-      for (const p of nodes) {
-        const links = Array.from(new Set(p.out_links||[])).slice(0, 1000);
-        for (const L of links) { if (nodeByUrl.has(L)) edges.push({ source: p.url, target: L }); if (edges.length>=50000) break; }
-        if (edges.length>=50000) break;
-      }
-      const graph = { nodes: nodes.map(n=>({ id:n.url, url:n.url, title:n.title||n.url, host:n.host||hostOf(n.url) })), edges };
-      download('link_graph.json', JSON.stringify(graph));
+      download('fragment_similarity.csv', toCSV(rows));
     }
 
     document.getElementById('run').addEventListener('click', runSimilarity);
     document.getElementById('export_csv').addEventListener('click', exportCSV);
-    document.getElementById('export_graph').addEventListener('click', exportGraph);
-    document.getElementById('build_pages').addEventListener('click', async () => {
-      try { await buildPagesInTypesense(); } catch (e) { document.getElementById('status').textContent = 'Error: ' + e.message; }
-    });
   </script>
 </body>
 </html>
