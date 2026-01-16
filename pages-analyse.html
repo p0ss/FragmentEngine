@@ -42,12 +42,49 @@
       gap: 12px;
       margin-bottom: 16px;
     }
-    .row.search-row {
-      grid-template-columns: 1fr auto;
+    .compare-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .compare-row .vs {
+      color: #90a4ae;
+      font-weight: 600;
+      font-size: 14px;
+      padding-bottom: 10px;
+    }
+    .site-box {
+      background: #f8fafc;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .site-box.active {
+      border-color: #1976d2;
+      background: #e3f2fd;
+    }
+    .site-box label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #546e7a;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .site-box input {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    .site-box .filter-info {
+      font-size: 11px;
+      color: #1976d2;
+      margin-top: 4px;
     }
     input, select {
       padding: 10px 12px;
-      background: #f8fafc;
+      background: #ffffff;
       color: #1f2933;
       border: 1px solid #e0e0e0;
       border-radius: 8px;
@@ -86,11 +123,28 @@
       border: 1px solid #1976d2;
     }
     .btn-secondary:hover { background: #e3f2fd; }
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
     .button-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-top: 8px;
+      align-items: center;
+    }
+    .options-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .options-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #546e7a;
     }
     #status {
       padding: 12px 16px;
@@ -130,10 +184,14 @@
     a { color: #1976d2; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .fragment-title {
-      max-width: 300px;
+      max-width: 280px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .fragment-host {
+      font-size: 11px;
+      color: #90a4ae;
     }
     .view-btn {
       display: inline-flex;
@@ -156,14 +214,6 @@
     .score-high { color: #d32f2f; }
     .score-med { color: #f57c00; }
     .score-low { color: #388e3c; }
-    .tag-highlight {
-      background: #fff3e0;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      color: #e65100;
-      margin-left: 6px;
-    }
 
     /* Fragment preview modal */
     .modal-overlay {
@@ -245,71 +295,129 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-top: 8px;
+      margin-bottom: 12px;
     }
     .filter-tag {
-      background: #e3f2fd;
-      border: 1px solid #90caf9;
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
       padding: 4px 10px;
       border-radius: 1rem;
       font-size: 12px;
-      color: #1565c0;
+      color: #546e7a;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .filter-tag:hover { background: #bbdefb; }
-    .filter-tag.active {
-      background: #1976d2;
-      color: white;
-      border-color: #1976d2;
+    .filter-tag:hover { background: #e3f2fd; border-color: #90caf9; }
+    .filter-tag.active-a {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-color: #81c784;
+    }
+    .filter-tag.active-b {
+      background: #fff3e0;
+      color: #e65100;
+      border-color: #ffb74d;
+    }
+    .filter-tag.active-both {
+      background: #e3f2fd;
+      color: #1565c0;
+      border-color: #64b5f6;
     }
     .filter-tag .count {
-      background: rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.1);
       padding: 1px 5px;
       border-radius: 8px;
       margin-left: 4px;
       font-size: 10px;
     }
-    .filter-tag.active .count { background: rgba(255,255,255,0.3); }
+    .filter-legend {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: #90a4ae;
+      margin-bottom: 8px;
+    }
+    .filter-legend span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .filter-legend .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .filter-legend .dot-a { background: #81c784; }
+    .filter-legend .dot-b { background: #ffb74d; }
+    .filter-legend .dot-both { background: #64b5f6; }
   </style>
 </head>
 <body>
   <h2>Fragment Similarity Analysis</h2>
 
   <div class="controls">
-    <div class="section-label">Search & Filter</div>
-    <div class="row search-row">
-      <input id="search_query" type="text" class="search-input" placeholder="Search fragments by text..." />
-      <button id="search_btn" type="button">
-        <span class="material-icons" style="font-size:18px">search</span>
-        Search
-      </button>
+    <div class="section-label">Filter by Category (click to apply to Site A, again for B, again to clear)</div>
+    <div class="filter-legend">
+      <span><span class="dot dot-a"></span> Site A only</span>
+      <span><span class="dot dot-b"></span> Site B only</span>
+      <span><span class="dot dot-both"></span> Both sites</span>
     </div>
-
-    <div class="section-label">Category Filter</div>
     <div id="category-filters" class="filter-tags">
       <span style="color: #90a4ae; font-size: 13px;">Loading categories...</span>
     </div>
 
-    <div class="section-label" style="margin-top: 16px;">Similarity Comparison</div>
-    <div class="row">
-      <input id="site_a" placeholder="Site A (e.g., servicesaustralia.gov.au)" value="servicesaustralia.gov.au" />
-      <input id="site_b" placeholder="Site B (e.g., my.gov.au)" value="my.gov.au" />
-      <select id="metric">
-        <option value="combined">Metric: Combined</option>
-        <option value="tags">Metric: Tags only</option>
-        <option value="embedding">Metric: Embedding only</option>
+    <div class="section-label">Text Search (optional - filters fragments by content match)</div>
+    <div class="row" style="margin-bottom: 16px;">
+      <input id="search_query" type="text" class="search-input" placeholder="Search text to filter fragments..." style="max-width: 400px;" />
+      <select id="search_apply">
+        <option value="both">Apply to both sites</option>
+        <option value="a">Apply to Site A only</option>
+        <option value="b">Apply to Site B only</option>
       </select>
-      <input id="threshold" type="number" step="0.01" min="0" max="1" value="0.5" placeholder="Threshold" />
     </div>
+
+    <div class="section-label">Compare Sites</div>
+    <div class="compare-row">
+      <div class="site-box" id="site-a-box">
+        <label>Site A</label>
+        <input id="site_a" placeholder="e.g., servicesaustralia.gov.au" value="servicesaustralia.gov.au" />
+        <div class="filter-info" id="site-a-filters"></div>
+      </div>
+      <div class="vs">vs</div>
+      <div class="site-box" id="site-b-box">
+        <label>Site B</label>
+        <input id="site_b" placeholder="e.g., my.gov.au" value="my.gov.au" />
+        <div class="filter-info" id="site-b-filters"></div>
+      </div>
+    </div>
+
+    <div class="options-row" style="margin-bottom: 12px;">
+      <label>
+        Metric:
+        <select id="metric">
+          <option value="combined">Combined</option>
+          <option value="tags">Tags only</option>
+          <option value="embedding">Embedding only</option>
+        </select>
+      </label>
+      <label>
+        Threshold:
+        <input id="threshold" type="number" step="0.01" min="0" max="1" value="0.5" style="width: 70px;" />
+      </label>
+    </div>
+
     <div class="button-row">
       <button id="run">
         <span class="material-icons" style="font-size:18px">compare_arrows</span>
-        Run Similarity Analysis
+        Run Comparison
       </button>
       <button id="export_csv" class="btn-secondary">
         <span class="material-icons" style="font-size:18px">download</span>
         Download CSV
+      </button>
+      <button id="clear_filters" class="btn-secondary btn-small">
+        <span class="material-icons" style="font-size:16px">clear_all</span>
+        Clear Filters
       </button>
     </div>
   </div>
@@ -340,20 +448,19 @@
   </div>
 
   <script>
-    // Configuration - hardcoded since this is an internal tool
     const TS_BASE = '/typesense';
     const TS_KEY = 'your-secure-api-key-here';
 
     // State
     const fragmentCache = new Map();
-    let allFragments = [];
-    let preparedFragments = [];
     let lastPairs = [];
     let currentPairs = [];
     let sortColumn = 'score';
     let sortAsc = false;
-    let selectedCategories = new Set();
     let categoryFacets = [];
+
+    // Filter state: 'none', 'a', 'b', 'both'
+    const categoryFilters = new Map(); // category -> 'a' | 'b' | 'both'
 
     // Typesense helpers
     async function tsSearch(collection, params) {
@@ -361,37 +468,35 @@
       const res = await fetch(`${TS_BASE}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
         method: 'GET', headers: { 'X-TYPESENSE-API-KEY': TS_KEY }
       });
-      if (!res.ok) {
-        const err = new Error(`${collection} HTTP ${res.status}`);
-        err.status = res.status;
-        throw err;
-      }
+      if (!res.ok) throw new Error(`${collection} HTTP ${res.status}`);
       return await res.json();
     }
 
-    async function tsFetchAll(collection, fields, filter = '', limit = 50000, statusFn = null) {
+    async function tsFetchFiltered(collection, fields, hostFilter, categories, searchText, limit = 50000, statusFn = null) {
       const per_page = 250;
       let page = 1;
       const out = [];
+
       while (out.length < limit) {
-        if (statusFn) statusFn(`Loading ${collection}: ${out.length} documents...`);
-        let data;
-        try {
-          const params = {
-            q: '*',
-            query_by: 'title',
-            include_fields: fields.join(','),
-            per_page,
-            page
-          };
-          if (filter) params.filter_by = filter;
-          data = await tsSearch(collection, params);
-        } catch (e) {
-          if (e && (e.status === 404 || String(e.message || '').includes('HTTP 404'))) {
-            return out;
-          }
-          throw e;
+        if (statusFn) statusFn(`Loading: ${out.length} fragments...`);
+
+        const filters = [];
+        if (hostFilter) filters.push(`url:*${hostFilter}*`);
+        if (categories.length > 0) {
+          const cats = categories.map(c => `"${c.replace(/"/g, '\\"')}"`);
+          filters.push(`categories:=[${cats.join(',')}]`);
         }
+
+        const params = {
+          q: searchText || '*',
+          query_by: searchText ? 'title,content_text' : 'title',
+          include_fields: fields.join(','),
+          per_page,
+          page
+        };
+        if (filters.length) params.filter_by = filters.join(' && ');
+
+        const data = await tsSearch(collection, params);
         const hits = data.hits || [];
         if (!hits.length) break;
         hits.forEach(h => out.push(h.document));
@@ -401,7 +506,7 @@
       return out.slice(0, limit);
     }
 
-    async function tsFacets(collection, facetField, filter = '', maxFacets = 100) {
+    async function tsFacets(collection, facetField, maxFacets = 100) {
       const params = {
         q: '*',
         query_by: 'title',
@@ -409,7 +514,6 @@
         max_facet_values: maxFacets,
         per_page: 0
       };
-      if (filter) params.filter_by = filter;
       return await tsSearch(collection, params);
     }
 
@@ -461,9 +565,8 @@
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Fragment preparation
-    function prepareFragments(frags) {
-      return frags.map(f => ({
+    function prepareFragment(f) {
+      return {
         id: f.id,
         url: f.url || '',
         title: f.title || f.hierarchy_lvl0 || 'Untitled',
@@ -474,7 +577,7 @@
         hierarchy_lvl0: f.hierarchy_lvl0,
         hierarchy_lvl1: f.hierarchy_lvl1,
         provider: f.provider
-      }));
+      };
     }
 
     function buildIndex(fragments) {
@@ -500,8 +603,8 @@
 
       for (const a of A) {
         processed++;
-        if (processed % 500 === 0 && statusFn) {
-          statusFn(`Computing pairs: ${processed}/${A.length} fragments, ${pairs.length} pairs found...`);
+        if (processed % 200 === 0 && statusFn) {
+          statusFn(`Comparing: ${processed}/${A.length} fragments, ${pairs.length} pairs found...`);
         }
 
         const cand = new Set();
@@ -511,19 +614,17 @@
         }
 
         if (cand.size === 0 && metric !== 'tags') {
-          for (let i = 0; i < Math.min(50, B.length); i++) {
+          for (let i = 0; i < Math.min(30, B.length); i++) {
             cand.add(Math.floor(Math.random() * B.length));
           }
         }
 
         for (const i of cand) {
           const b = B[i];
-          if (!b) continue;
-          if (a.id === b.id || a.url === b.url) continue;
+          if (!b || a.id === b.id || a.url === b.url) continue;
 
-          const key = a.id + '|' + b.id;
-          const keyRev = b.id + '|' + a.id;
-          if (seen.has(key) || seen.has(keyRev)) continue;
+          const key = a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id;
+          if (seen.has(key)) continue;
           seen.add(key);
 
           const tagSim = jaccard(a.categories, b.categories);
@@ -549,7 +650,7 @@
     // Category filter UI
     async function loadCategories() {
       try {
-        const data = await tsFacets('content_fragments', 'categories', '', 50);
+        const data = await tsFacets('content_fragments', 'categories', 50);
         const facets = data.facet_counts?.find(f => f.field_name === 'categories')?.counts || [];
         categoryFacets = facets.sort((a, b) => b.count - a.count);
         renderCategoryFilters();
@@ -566,147 +667,110 @@
         return;
       }
 
-      container.innerHTML = categoryFacets.slice(0, 20).map(f => `
-        <span class="filter-tag ${selectedCategories.has(f.value) ? 'active' : ''}" data-category="${escHtml(f.value)}">
-          ${escHtml(f.value)}<span class="count">${f.count}</span>
-        </span>
-      `).join('');
+      container.innerHTML = categoryFacets.slice(0, 25).map(f => {
+        const state = categoryFilters.get(f.value) || 'none';
+        const cls = state === 'a' ? 'active-a' : state === 'b' ? 'active-b' : state === 'both' ? 'active-both' : '';
+        return `<span class="filter-tag ${cls}" data-category="${escHtml(f.value)}">${escHtml(f.value)}<span class="count">${f.count}</span></span>`;
+      }).join('');
 
       container.querySelectorAll('.filter-tag').forEach(tag => {
         tag.onclick = () => {
           const cat = tag.dataset.category;
-          if (selectedCategories.has(cat)) {
-            selectedCategories.delete(cat);
-            tag.classList.remove('active');
+          const current = categoryFilters.get(cat) || 'none';
+          // Cycle: none -> a -> b -> both -> none
+          const next = current === 'none' ? 'a' : current === 'a' ? 'b' : current === 'b' ? 'both' : 'none';
+          if (next === 'none') {
+            categoryFilters.delete(cat);
           } else {
-            selectedCategories.add(cat);
-            tag.classList.add('active');
+            categoryFilters.set(cat, next);
           }
+          renderCategoryFilters();
+          updateFilterInfo();
         };
       });
     }
 
-    // Search functionality
-    async function runSearch() {
-      const query = document.getElementById('search_query').value.trim();
-      const status = document.getElementById('status');
-      const searchBtn = document.getElementById('search_btn');
-
-      searchBtn.disabled = true;
-      status.textContent = 'Searching...';
-
-      try {
-        // Build filter from selected categories
-        let filter = '';
-        if (selectedCategories.size > 0) {
-          const cats = Array.from(selectedCategories).map(c => `"${c.replace(/"/g, '\\"')}"`);
-          filter = `categories:=[${cats.join(',')}]`;
-        }
-
-        const params = {
-          q: query || '*',
-          query_by: 'title,content_text',
-          include_fields: 'id,url,title,content_text,categories,hierarchy_lvl0,hierarchy_lvl1,provider',
-          per_page: 100,
-          page: 1
-        };
-        if (filter) params.filter_by = filter;
-
-        const data = await tsSearch('content_fragments', params);
-        const frags = (data.hits || []).map(h => h.document);
-
-        // Cache fragments
-        frags.forEach(f => fragmentCache.set(f.id, f));
-
-        // Render search results
-        renderSearchResults(frags, data.found, query);
-        status.textContent = `Found ${data.found} fragments${query ? ` matching "${query}"` : ''}${selectedCategories.size ? ` in ${selectedCategories.size} categories` : ''} (showing ${frags.length})`;
-      } catch (e) {
-        status.textContent = 'Search error: ' + e.message;
-        console.error(e);
-      } finally {
-        searchBtn.disabled = false;
-      }
-    }
-
-    function renderSearchResults(frags, total, query) {
-      const el = document.getElementById('results');
-      if (!frags.length) {
-        el.innerHTML = '<p style="padding: 2rem; text-align: center; color: #607d8b;">No fragments found. Try different search terms or filters.</p>';
-        return;
+    function updateFilterInfo() {
+      const catsA = [], catsB = [];
+      for (const [cat, state] of categoryFilters) {
+        if (state === 'a' || state === 'both') catsA.push(cat);
+        if (state === 'b' || state === 'both') catsB.push(cat);
       }
 
-      const rows = frags.map(f => {
-        const cats = (f.categories || []).slice(0, 3).map(c => `<span class="tag-highlight">${escHtml(c)}</span>`).join('');
-        return `
-          <tr>
-            <td>
-              <div class="fragment-title">${escHtml(f.title || f.hierarchy_lvl0 || 'Untitled')}</div>
-              <button class="view-btn" onclick="showFragment('${f.id}')">
-                <span class="material-icons">visibility</span> View
-              </button>
-            </td>
-            <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml((f.content_text || '').slice(0, 150))}...</td>
-            <td>${cats}</td>
-            <td><a href="${escHtml(f.url)}" target="_blank" style="font-size:12px;">${escHtml(hostOf(f.url))}</a></td>
-          </tr>`;
-      }).join('');
-
-      el.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Fragment</th>
-              <th>Content Preview</th>
-              <th>Categories</th>
-              <th>Source</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+      document.getElementById('site-a-filters').textContent = catsA.length ? `Filtered: ${catsA.join(', ')}` : '';
+      document.getElementById('site-b-filters').textContent = catsB.length ? `Filtered: ${catsB.join(', ')}` : '';
     }
 
-    // Similarity analysis
-    async function runSimilarity() {
+    function clearFilters() {
+      categoryFilters.clear();
+      document.getElementById('search_query').value = '';
+      renderCategoryFilters();
+      updateFilterInfo();
+    }
+
+    // Run comparison
+    async function runComparison() {
       const siteA = document.getElementById('site_a').value.trim();
       const siteB = document.getElementById('site_b').value.trim();
       const metric = document.getElementById('metric').value;
       const threshold = parseFloat(document.getElementById('threshold').value || '0.5');
+      const searchText = document.getElementById('search_query').value.trim();
+      const searchApply = document.getElementById('search_apply').value;
       const status = document.getElementById('status');
       const runBtn = document.getElementById('run');
+
+      if (!siteA || !siteB) {
+        status.textContent = 'Please enter both Site A and Site B';
+        return;
+      }
 
       runBtn.disabled = true;
       status.textContent = 'Loading fragments...';
 
       try {
-        // Build filter from selected categories
-        let filter = '';
-        if (selectedCategories.size > 0) {
-          const cats = Array.from(selectedCategories).map(c => `"${c.replace(/"/g, '\\"')}"`);
-          filter = `categories:=[${cats.join(',')}]`;
+        // Build category filters for each side
+        const catsA = [], catsB = [];
+        for (const [cat, state] of categoryFilters) {
+          if (state === 'a' || state === 'both') catsA.push(cat);
+          if (state === 'b' || state === 'both') catsB.push(cat);
         }
+
+        const searchA = (searchApply === 'a' || searchApply === 'both') ? searchText : '';
+        const searchB = (searchApply === 'b' || searchApply === 'both') ? searchText : '';
 
         const fields = ['id', 'url', 'title', 'content_text', 'categories', 'hierarchy_lvl0', 'hierarchy_lvl1', 'provider'];
-        const frags = await tsFetchAll('content_fragments', fields, filter, 50000, msg => status.textContent = msg);
 
-        if (!frags || frags.length === 0) {
-          throw new Error('No content_fragments found');
-        }
+        // Fetch fragments for each side
+        status.textContent = `Loading Site A (${siteA})...`;
+        const fragsA = await tsFetchFiltered('content_fragments', fields, siteA, catsA, searchA, 25000, msg => status.textContent = `Site A: ${msg}`);
 
-        status.textContent = `Preparing ${frags.length} fragments...`;
-        frags.forEach(f => fragmentCache.set(f.id, f));
+        status.textContent = `Loading Site B (${siteB})...`;
+        const fragsB = await tsFetchFiltered('content_fragments', fields, siteB, catsB, searchB, 25000, msg => status.textContent = `Site B: ${msg}`);
 
-        const prepared = prepareFragments(frags);
-        const A = prepared.filter(f => f.host.endsWith(siteA));
-        const B = prepared.filter(f => f.host.endsWith(siteB));
+        if (!fragsA.length) throw new Error(`No fragments found for ${siteA}`);
+        if (!fragsB.length) throw new Error(`No fragments found for ${siteB}`);
 
-        status.textContent = `Comparing ${A.length} fragments from ${siteA} with ${B.length} from ${siteB}...`;
+        // Cache and prepare
+        status.textContent = `Preparing ${fragsA.length + fragsB.length} fragments...`;
+        fragsA.forEach(f => fragmentCache.set(f.id, f));
+        fragsB.forEach(f => fragmentCache.set(f.id, f));
 
-        lastPairs = computePairs(A, B, metric, threshold, 10000, msg => status.textContent = msg);
+        const preparedA = fragsA.map(prepareFragment);
+        const preparedB = fragsB.map(prepareFragment);
 
-        renderSimilarityTable(lastPairs.slice(0, 200));
-        const catInfo = selectedCategories.size ? ` (filtered by ${selectedCategories.size} categories)` : '';
-        status.textContent = `Found ${lastPairs.length} similar fragment pairs${catInfo}. Showing top 200. Threshold: ${threshold}, Metric: ${metric}`;
+        status.textContent = `Comparing ${preparedA.length} vs ${preparedB.length} fragments...`;
+
+        lastPairs = computePairs(preparedA, preparedB, metric, threshold, 10000, msg => status.textContent = msg);
+
+        renderTable(lastPairs.slice(0, 200));
+
+        const filterInfo = [];
+        if (catsA.length) filterInfo.push(`A filtered by ${catsA.length} categories`);
+        if (catsB.length) filterInfo.push(`B filtered by ${catsB.length} categories`);
+        if (searchA) filterInfo.push(`A searched "${searchA}"`);
+        if (searchB) filterInfo.push(`B searched "${searchB}"`);
+
+        status.textContent = `Found ${lastPairs.length} similar pairs (showing top 200). ${filterInfo.join(', ')}`;
       } catch (e) {
         status.textContent = 'Error: ' + e.message;
         console.error(e);
@@ -716,8 +780,8 @@
     }
 
     const columns = [
-      { key: 'fragA', label: 'Fragment A', getValue: p => (p.a.title || '').toLowerCase() },
-      { key: 'fragB', label: 'Fragment B', getValue: p => (p.b.title || '').toLowerCase() },
+      { key: 'fragA', label: 'Site A Fragment', getValue: p => (p.a.title || '').toLowerCase() },
+      { key: 'fragB', label: 'Site B Fragment', getValue: p => (p.b.title || '').toLowerCase() },
       { key: 'score', label: 'Score', getValue: p => p.score },
       { key: 'tagSim', label: 'Tags', getValue: p => p.tagSim },
       { key: 'embSim', label: 'Embed', getValue: p => p.embSim },
@@ -740,10 +804,10 @@
       return 'score-low';
     }
 
-    function renderSimilarityTable(pairs, preserveSort = false) {
+    function renderTable(pairs, preserveSort = false) {
       const el = document.getElementById('results');
       if (!pairs.length) {
-        el.innerHTML = '<p style="padding: 2rem; text-align: center; color: #607d8b;">No similar fragments found. Try lowering the threshold.</p>';
+        el.innerHTML = '<p style="padding: 2rem; text-align: center; color: #607d8b;">No similar fragments found. Try lowering the threshold or adjusting filters.</p>';
         return;
       }
       currentPairs = pairs;
@@ -753,13 +817,15 @@
       const rows = sorted.map(p => `
         <tr>
           <td>
-            <div class="fragment-title">${escHtml(p.a.title || p.a.url)}</div>
+            <div class="fragment-title">${escHtml(p.a.title)}</div>
+            <div class="fragment-host">${escHtml(p.a.host)}</div>
             <button class="view-btn" onclick="showFragment('${p.a.id}')">
               <span class="material-icons">visibility</span> View
             </button>
           </td>
           <td>
-            <div class="fragment-title">${escHtml(p.b.title || p.b.url)}</div>
+            <div class="fragment-title">${escHtml(p.b.title)}</div>
+            <div class="fragment-host">${escHtml(p.b.host)}</div>
             <button class="view-btn" onclick="showFragment('${p.b.id}')">
               <span class="material-icons">visibility</span> View
             </button>
@@ -786,7 +852,7 @@
           const col = th.dataset.col;
           if (sortColumn === col) { sortAsc = !sortAsc; }
           else { sortColumn = col; sortAsc = col === 'fragA' || col === 'fragB'; }
-          renderSimilarityTable(currentPairs, true);
+          renderTable(currentPairs, true);
         };
       });
     }
@@ -794,10 +860,7 @@
     // Modal
     function showFragment(id) {
       const f = fragmentCache.get(id);
-      if (!f) {
-        alert('Fragment not found in cache');
-        return;
-      }
+      if (!f) { alert('Fragment not found'); return; }
 
       document.getElementById('modal-title').textContent = f.title || f.hierarchy_lvl0 || 'Fragment Preview';
 
@@ -807,13 +870,9 @@
       if (f.hierarchy_lvl1) meta.push(f.hierarchy_lvl1);
       (f.categories || []).forEach(c => meta.push(c));
 
-      document.getElementById('modal-meta').innerHTML = meta.map(m =>
-        `<span class="meta-tag">${escHtml(m)}</span>`
-      ).join('');
-
+      document.getElementById('modal-meta').innerHTML = meta.map(m => `<span class="meta-tag">${escHtml(m)}</span>`).join('');
       document.getElementById('modal-content').textContent = f.content_text || '(No content)';
       document.getElementById('modal-link').href = f.url || '#';
-
       document.getElementById('modal-overlay').classList.add('active');
     }
 
@@ -826,11 +885,7 @@
       if (!rows.length) return '';
       const headers = Object.keys(rows[0]);
       const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-      const out = [headers.map(esc).join(',')];
-      for (const r of rows) {
-        out.push(headers.map(h => esc(r[h])).join(','));
-      }
-      return out.join('\n');
+      return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
     }
 
     function download(name, text) {
@@ -840,37 +895,23 @@
       a.click();
     }
 
-    async function exportCSV() {
-      if (!lastPairs.length) return alert('Run similarity analysis first');
+    function exportCSV() {
+      if (!lastPairs.length) return alert('Run comparison first');
       const rows = lastPairs.map(p => ({
-        a_id: p.a.id,
-        a_url: p.a.url,
-        a_title: p.a.title || '',
-        b_id: p.b.id,
-        b_url: p.b.url,
-        b_title: p.b.title || '',
-        score: p.score.toFixed(3),
-        tag_sim: p.tagSim.toFixed(3),
-        emb_sim: p.embSim.toFixed(3)
+        a_id: p.a.id, a_url: p.a.url, a_title: p.a.title || '',
+        b_id: p.b.id, b_url: p.b.url, b_title: p.b.title || '',
+        score: p.score.toFixed(3), tag_sim: p.tagSim.toFixed(3), emb_sim: p.embSim.toFixed(3)
       }));
       download('fragment_similarity.csv', toCSV(rows));
     }
 
     // Event listeners
-    document.getElementById('modal-overlay').addEventListener('click', (e) => {
-      if (e.target.id === 'modal-overlay') closeModal();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
-    });
-
-    document.getElementById('search_btn').addEventListener('click', runSearch);
-    document.getElementById('search_query').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') runSearch();
-    });
-    document.getElementById('run').addEventListener('click', runSimilarity);
+    document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    document.getElementById('run').addEventListener('click', runComparison);
     document.getElementById('export_csv').addEventListener('click', exportCSV);
+    document.getElementById('clear_filters').addEventListener('click', clearFilters);
+    document.getElementById('search_query').addEventListener('keydown', e => { if (e.key === 'Enter') runComparison(); });
 
     // Initialize
     loadCategories();
