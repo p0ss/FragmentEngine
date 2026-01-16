@@ -376,7 +376,7 @@
       </select>
     </div>
 
-    <div class="section-label">Compare Sites</div>
+    <div class="section-label">Compare Sites (leave Site B empty to find duplicates within one site)</div>
     <div class="compare-row">
       <div class="site-box" id="site-a-box">
         <label>Site A</label>
@@ -385,8 +385,8 @@
       </div>
       <div class="vs">vs</div>
       <div class="site-box" id="site-b-box">
-        <label>Site B</label>
-        <input id="site_b" placeholder="e.g., my.gov.au" value="my.gov.au" />
+        <label>Site B (optional)</label>
+        <input id="site_b" placeholder="Leave empty for single-site analysis" value="" />
         <div class="filter-info" id="site-b-filters"></div>
       </div>
     </div>
@@ -734,8 +734,11 @@
       const status = document.getElementById('status');
       const runBtn = document.getElementById('run');
 
-      if (!siteA || !siteB) {
-        status.textContent = 'Please enter both Site A and Site B';
+      // Single-site mode if Site B is empty
+      const singleSiteMode = !siteB;
+
+      if (!siteA) {
+        status.textContent = 'Please enter at least Site A';
         return;
       }
 
@@ -755,37 +758,66 @@
 
         const fields = ['id', 'url', 'title', 'content_text', 'categories', 'hierarchy_lvl0', 'hierarchy_lvl1', 'provider'];
 
-        // Fetch fragments for each side
-        status.textContent = `Loading Site A (${siteA})...`;
-        const fragsA = await tsFetchFiltered('content_fragments', fields, siteA, catsA, searchA, 25000, msg => status.textContent = `Site A: ${msg}`);
+        let fragsA, fragsB, preparedA, preparedB;
 
-        status.textContent = `Loading Site B (${siteB})...`;
-        const fragsB = await tsFetchFiltered('content_fragments', fields, siteB, catsB, searchB, 25000, msg => status.textContent = `Site B: ${msg}`);
+        if (singleSiteMode) {
+          // Single site - find duplicates within the same site
+          status.textContent = `Loading ${siteA}...`;
+          // Combine both category filters for single-site mode
+          const allCats = [...new Set([...catsA, ...catsB])];
+          const search = searchText; // Apply search regardless of dropdown
+          fragsA = await tsFetchFiltered('content_fragments', fields, siteA, allCats, search, 25000, msg => status.textContent = msg);
 
-        if (!fragsA.length) throw new Error(`No fragments found for ${siteA}`);
-        if (!fragsB.length) throw new Error(`No fragments found for ${siteB}`);
+          if (!fragsA.length) throw new Error(`No fragments found for ${siteA}`);
 
-        // Cache and prepare
-        status.textContent = `Preparing ${fragsA.length + fragsB.length} fragments...`;
-        fragsA.forEach(f => fragmentCache.set(f.id, f));
-        fragsB.forEach(f => fragmentCache.set(f.id, f));
+          status.textContent = `Preparing ${fragsA.length} fragments...`;
+          fragsA.forEach(f => fragmentCache.set(f.id, f));
+          preparedA = fragsA.map(prepareFragment);
+          preparedB = preparedA; // Compare against itself
 
-        const preparedA = fragsA.map(prepareFragment);
-        const preparedB = fragsB.map(prepareFragment);
+          status.textContent = `Finding similar fragments within ${siteA} (${preparedA.length} fragments)...`;
+        } else {
+          // Two-site comparison
+          status.textContent = `Loading Site A (${siteA})...`;
+          fragsA = await tsFetchFiltered('content_fragments', fields, siteA, catsA, searchA, 25000, msg => status.textContent = `Site A: ${msg}`);
 
-        status.textContent = `Comparing ${preparedA.length} vs ${preparedB.length} fragments...`;
+          status.textContent = `Loading Site B (${siteB})...`;
+          fragsB = await tsFetchFiltered('content_fragments', fields, siteB, catsB, searchB, 25000, msg => status.textContent = `Site B: ${msg}`);
+
+          if (!fragsA.length) throw new Error(`No fragments found for ${siteA}`);
+          if (!fragsB.length) throw new Error(`No fragments found for ${siteB}`);
+
+          status.textContent = `Preparing ${fragsA.length + fragsB.length} fragments...`;
+          fragsA.forEach(f => fragmentCache.set(f.id, f));
+          fragsB.forEach(f => fragmentCache.set(f.id, f));
+
+          preparedA = fragsA.map(prepareFragment);
+          preparedB = fragsB.map(prepareFragment);
+
+          status.textContent = `Comparing ${preparedA.length} vs ${preparedB.length} fragments...`;
+        }
 
         lastPairs = computePairs(preparedA, preparedB, metric, threshold, 10000, msg => status.textContent = msg);
+
+        // Update column labels based on mode
+        columns[0].label = singleSiteMode ? 'Fragment 1' : 'Site A Fragment';
+        columns[1].label = singleSiteMode ? 'Fragment 2' : 'Site B Fragment';
 
         renderTable(lastPairs.slice(0, 200));
 
         const filterInfo = [];
-        if (catsA.length) filterInfo.push(`A filtered by ${catsA.length} categories`);
-        if (catsB.length) filterInfo.push(`B filtered by ${catsB.length} categories`);
-        if (searchA) filterInfo.push(`A searched "${searchA}"`);
-        if (searchB) filterInfo.push(`B searched "${searchB}"`);
-
-        status.textContent = `Found ${lastPairs.length} similar pairs (showing top 200). ${filterInfo.join(', ')}`;
+        if (singleSiteMode) {
+          const allCats = [...new Set([...catsA, ...catsB])];
+          if (allCats.length) filterInfo.push(`filtered by ${allCats.length} categories`);
+          if (searchText) filterInfo.push(`searched "${searchText}"`);
+          status.textContent = `Found ${lastPairs.length} similar pairs within ${siteA} (showing top 200). ${filterInfo.join(', ')}`;
+        } else {
+          if (catsA.length) filterInfo.push(`A filtered by ${catsA.length} categories`);
+          if (catsB.length) filterInfo.push(`B filtered by ${catsB.length} categories`);
+          if (searchA) filterInfo.push(`A searched "${searchA}"`);
+          if (searchB) filterInfo.push(`B searched "${searchB}"`);
+          status.textContent = `Found ${lastPairs.length} similar pairs (showing top 200). ${filterInfo.join(', ')}`;
+        }
       } catch (e) {
         status.textContent = 'Error: ' + e.message;
         console.error(e);
