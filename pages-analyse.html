@@ -28,11 +28,22 @@
       margin-bottom: 1rem;
       box-shadow: 0 4px 12px rgba(25, 118, 210, 0.08);
     }
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #546e7a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
     .row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .row.search-row {
+      grid-template-columns: 1fr auto;
     }
     input, select {
       padding: 10px 12px;
@@ -47,6 +58,13 @@
       border-color: #1976d2;
       box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
     }
+    .search-input {
+      padding-left: 40px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23546e7a' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 12px center;
+      background-size: 20px;
+    }
     button {
       padding: 10px 20px;
       background: #1976d2;
@@ -56,6 +74,9 @@
       cursor: pointer;
       font-weight: 500;
       transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     button:hover { background: #1565c0; }
     button:disabled { background: #90caf9; cursor: not-allowed; }
@@ -69,6 +90,7 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      margin-top: 8px;
     }
     #status {
       padding: 12px 16px;
@@ -122,6 +144,8 @@
       border-radius: 4px;
       font-size: 12px;
       color: #1976d2;
+      border: none;
+      cursor: pointer;
     }
     .view-btn:hover { background: #bbdefb; text-decoration: none; }
     .view-btn .material-icons { font-size: 14px; }
@@ -132,6 +156,14 @@
     .score-high { color: #d32f2f; }
     .score-med { color: #f57c00; }
     .score-low { color: #388e3c; }
+    .tag-highlight {
+      background: #fff3e0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #e65100;
+      margin-left: 6px;
+    }
 
     /* Fragment preview modal */
     .modal-overlay {
@@ -209,31 +241,76 @@
       gap: 8px;
       justify-content: flex-end;
     }
+    .filter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .filter-tag {
+      background: #e3f2fd;
+      border: 1px solid #90caf9;
+      padding: 4px 10px;
+      border-radius: 1rem;
+      font-size: 12px;
+      color: #1565c0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-tag:hover { background: #bbdefb; }
+    .filter-tag.active {
+      background: #1976d2;
+      color: white;
+      border-color: #1976d2;
+    }
+    .filter-tag .count {
+      background: rgba(255,255,255,0.3);
+      padding: 1px 5px;
+      border-radius: 8px;
+      margin-left: 4px;
+      font-size: 10px;
+    }
+    .filter-tag.active .count { background: rgba(255,255,255,0.3); }
   </style>
 </head>
 <body>
   <h2>Fragment Similarity Analysis</h2>
 
   <div class="controls">
+    <div class="section-label">Search & Filter</div>
+    <div class="row search-row">
+      <input id="search_query" type="text" class="search-input" placeholder="Search fragments by text..." />
+      <button id="search_btn" type="button">
+        <span class="material-icons" style="font-size:18px">search</span>
+        Search
+      </button>
+    </div>
+
+    <div class="section-label">Category Filter</div>
+    <div id="category-filters" class="filter-tags">
+      <span style="color: #90a4ae; font-size: 13px;">Loading categories...</span>
+    </div>
+
+    <div class="section-label" style="margin-top: 16px;">Similarity Comparison</div>
     <div class="row">
-      <input id="ts_base" placeholder="Typesense base URL" value="/typesense" />
-      <input id="ts_key" placeholder="Typesense API key" value="your-secure-api-key-here" />
       <input id="site_a" placeholder="Site A (e.g., servicesaustralia.gov.au)" value="servicesaustralia.gov.au" />
       <input id="site_b" placeholder="Site B (e.g., my.gov.au)" value="my.gov.au" />
-    </div>
-    <div class="row">
       <select id="metric">
         <option value="combined">Metric: Combined</option>
         <option value="tags">Metric: Tags only</option>
         <option value="embedding">Metric: Embedding only</option>
       </select>
       <input id="threshold" type="number" step="0.01" min="0" max="1" value="0.5" placeholder="Threshold" />
-      <input id="max_pairs" type="number" step="100" min="100" value="10000" placeholder="Max pairs" />
-      <input id="max_fragments" type="number" step="1000" min="1000" value="50000" placeholder="Max fragments to load" />
     </div>
     <div class="button-row">
-      <button id="run">Run Fragment Similarity</button>
-      <button id="export_csv" class="btn-secondary">Download CSV</button>
+      <button id="run">
+        <span class="material-icons" style="font-size:18px">compare_arrows</span>
+        Run Similarity Analysis
+      </button>
+      <button id="export_csv" class="btn-secondary">
+        <span class="material-icons" style="font-size:18px">download</span>
+        Download CSV
+      </button>
     </div>
   </div>
 
@@ -263,16 +340,26 @@
   </div>
 
   <script>
-    // Fragment cache for modal preview
+    // Configuration - hardcoded since this is an internal tool
+    const TS_BASE = '/typesense';
+    const TS_KEY = 'your-secure-api-key-here';
+
+    // State
     const fragmentCache = new Map();
+    let allFragments = [];
+    let preparedFragments = [];
+    let lastPairs = [];
+    let currentPairs = [];
+    let sortColumn = 'score';
+    let sortAsc = false;
+    let selectedCategories = new Set();
+    let categoryFacets = [];
 
-    function tsBase() { return document.getElementById('ts_base').value.trim() || '/typesense'; }
-    function tsKey() { return document.getElementById('ts_key').value.trim() || 'your-secure-api-key-here'; }
-
+    // Typesense helpers
     async function tsSearch(collection, params) {
       const query = new URLSearchParams(params).toString();
-      const res = await fetch(`${tsBase()}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
-        method: 'GET', headers: { 'X-TYPESENSE-API-KEY': tsKey() }
+      const res = await fetch(`${TS_BASE}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
+        method: 'GET', headers: { 'X-TYPESENSE-API-KEY': TS_KEY }
       });
       if (!res.ok) {
         const err = new Error(`${collection} HTTP ${res.status}`);
@@ -282,7 +369,7 @@
       return await res.json();
     }
 
-    async function tsFetchAll(collection, fields, limit=50000, statusFn=null) {
+    async function tsFetchAll(collection, fields, filter = '', limit = 50000, statusFn = null) {
       const per_page = 250;
       let page = 1;
       const out = [];
@@ -290,15 +377,17 @@
         if (statusFn) statusFn(`Loading ${collection}: ${out.length} documents...`);
         let data;
         try {
-          data = await tsSearch(collection, {
+          const params = {
             q: '*',
             query_by: 'title',
             include_fields: fields.join(','),
             per_page,
             page
-          });
+          };
+          if (filter) params.filter_by = filter;
+          data = await tsSearch(collection, params);
         } catch (e) {
-          if (e && (e.status === 404 || String(e.message||'').includes('HTTP 404'))) {
+          if (e && (e.status === 404 || String(e.message || '').includes('HTTP 404'))) {
             return out;
           }
           throw e;
@@ -312,17 +401,29 @@
       return out.slice(0, limit);
     }
 
+    async function tsFacets(collection, facetField, filter = '', maxFacets = 100) {
+      const params = {
+        q: '*',
+        query_by: 'title',
+        facet_by: facetField,
+        max_facet_values: maxFacets,
+        per_page: 0
+      };
+      if (filter) params.filter_by = filter;
+      return await tsSearch(collection, params);
+    }
+
+    // Utility functions
     function hostOf(u) {
       try { return new URL(u).hostname; }
       catch { return ''; }
     }
 
     function tokens(s) {
-      return (s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);
+      return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
     }
 
-    // Build a hashed embedding for fragment content
-    function buildHashedEmbedding(text, dim=256) {
+    function buildHashedEmbedding(text, dim = 256) {
       const v = new Array(dim).fill(0);
       for (const t of tokens(text)) {
         let h = 2166136261;
@@ -356,7 +457,11 @@
       return (!na || !nb) ? 0 : dot / Math.sqrt(na * nb);
     }
 
-    // Prepare fragments with embeddings
+    function escHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Fragment preparation
     function prepareFragments(frags) {
       return frags.map(f => ({
         id: f.id,
@@ -372,11 +477,9 @@
       }));
     }
 
-    // Build inverted index for faster candidate lookup
     function buildIndex(fragments) {
       const idxCat = new Map();
       const nrm = s => String(s || '').toLowerCase();
-
       for (let i = 0; i < fragments.length; i++) {
         const f = fragments[i];
         for (const cat of f.categories) {
@@ -388,11 +491,9 @@
       return { idxCat };
     }
 
-    // Compute similar pairs between two sets of fragments
     function computePairs(A, B, metric, threshold, maxPairs, statusFn) {
       const { idxCat } = buildIndex(B);
       const nrm = s => String(s || '').toLowerCase();
-
       const pairs = [];
       const seen = new Set();
       let processed = 0;
@@ -403,16 +504,13 @@
           statusFn(`Computing pairs: ${processed}/${A.length} fragments, ${pairs.length} pairs found...`);
         }
 
-        // Find candidates from B that share categories
         const cand = new Set();
         for (const cat of a.categories) {
           const s = idxCat.get(nrm(cat));
           if (s) s.forEach(i => cand.add(i));
         }
 
-        // If no category overlap, sample some random candidates for embedding comparison
         if (cand.size === 0 && metric !== 'tags') {
-          // Add some random samples for embedding-only matching
           for (let i = 0; i < Math.min(50, B.length); i++) {
             cand.add(Math.floor(Math.random() * B.length));
           }
@@ -421,8 +519,6 @@
         for (const i of cand) {
           const b = B[i];
           if (!b) continue;
-
-          // Skip same fragment or same URL
           if (a.id === b.id || a.url === b.url) continue;
 
           const key = a.id + '|' + b.id;
@@ -450,26 +546,132 @@
       return pairs.slice(0, maxPairs);
     }
 
-    function toCSV(rows) {
-      if (!rows.length) return '';
-      const headers = Object.keys(rows[0]);
-      const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-      const out = [headers.map(esc).join(',')];
-      for (const r of rows) {
-        out.push(headers.map(h => esc(r[h])).join(','));
+    // Category filter UI
+    async function loadCategories() {
+      try {
+        const data = await tsFacets('content_fragments', 'categories', '', 50);
+        const facets = data.facet_counts?.find(f => f.field_name === 'categories')?.counts || [];
+        categoryFacets = facets.sort((a, b) => b.count - a.count);
+        renderCategoryFilters();
+      } catch (e) {
+        console.error('Failed to load categories:', e);
+        document.getElementById('category-filters').innerHTML = '<span style="color:#d32f2f;font-size:13px;">Failed to load categories</span>';
       }
-      return out.join('\n');
     }
 
-    let lastPairs = [];
+    function renderCategoryFilters() {
+      const container = document.getElementById('category-filters');
+      if (!categoryFacets.length) {
+        container.innerHTML = '<span style="color:#90a4ae;font-size:13px;">No categories found</span>';
+        return;
+      }
 
+      container.innerHTML = categoryFacets.slice(0, 20).map(f => `
+        <span class="filter-tag ${selectedCategories.has(f.value) ? 'active' : ''}" data-category="${escHtml(f.value)}">
+          ${escHtml(f.value)}<span class="count">${f.count}</span>
+        </span>
+      `).join('');
+
+      container.querySelectorAll('.filter-tag').forEach(tag => {
+        tag.onclick = () => {
+          const cat = tag.dataset.category;
+          if (selectedCategories.has(cat)) {
+            selectedCategories.delete(cat);
+            tag.classList.remove('active');
+          } else {
+            selectedCategories.add(cat);
+            tag.classList.add('active');
+          }
+        };
+      });
+    }
+
+    // Search functionality
+    async function runSearch() {
+      const query = document.getElementById('search_query').value.trim();
+      const status = document.getElementById('status');
+      const searchBtn = document.getElementById('search_btn');
+
+      searchBtn.disabled = true;
+      status.textContent = 'Searching...';
+
+      try {
+        // Build filter from selected categories
+        let filter = '';
+        if (selectedCategories.size > 0) {
+          const cats = Array.from(selectedCategories).map(c => `"${c.replace(/"/g, '\\"')}"`);
+          filter = `categories:=[${cats.join(',')}]`;
+        }
+
+        const params = {
+          q: query || '*',
+          query_by: 'title,content_text',
+          include_fields: 'id,url,title,content_text,categories,hierarchy_lvl0,hierarchy_lvl1,provider',
+          per_page: 100,
+          page: 1
+        };
+        if (filter) params.filter_by = filter;
+
+        const data = await tsSearch('content_fragments', params);
+        const frags = (data.hits || []).map(h => h.document);
+
+        // Cache fragments
+        frags.forEach(f => fragmentCache.set(f.id, f));
+
+        // Render search results
+        renderSearchResults(frags, data.found, query);
+        status.textContent = `Found ${data.found} fragments${query ? ` matching "${query}"` : ''}${selectedCategories.size ? ` in ${selectedCategories.size} categories` : ''} (showing ${frags.length})`;
+      } catch (e) {
+        status.textContent = 'Search error: ' + e.message;
+        console.error(e);
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    function renderSearchResults(frags, total, query) {
+      const el = document.getElementById('results');
+      if (!frags.length) {
+        el.innerHTML = '<p style="padding: 2rem; text-align: center; color: #607d8b;">No fragments found. Try different search terms or filters.</p>';
+        return;
+      }
+
+      const rows = frags.map(f => {
+        const cats = (f.categories || []).slice(0, 3).map(c => `<span class="tag-highlight">${escHtml(c)}</span>`).join('');
+        return `
+          <tr>
+            <td>
+              <div class="fragment-title">${escHtml(f.title || f.hierarchy_lvl0 || 'Untitled')}</div>
+              <button class="view-btn" onclick="showFragment('${f.id}')">
+                <span class="material-icons">visibility</span> View
+              </button>
+            </td>
+            <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml((f.content_text || '').slice(0, 150))}...</td>
+            <td>${cats}</td>
+            <td><a href="${escHtml(f.url)}" target="_blank" style="font-size:12px;">${escHtml(hostOf(f.url))}</a></td>
+          </tr>`;
+      }).join('');
+
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Fragment</th>
+              <th>Content Preview</th>
+              <th>Categories</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Similarity analysis
     async function runSimilarity() {
       const siteA = document.getElementById('site_a').value.trim();
       const siteB = document.getElementById('site_b').value.trim();
       const metric = document.getElementById('metric').value;
       const threshold = parseFloat(document.getElementById('threshold').value || '0.5');
-      const maxPairs = parseInt(document.getElementById('max_pairs').value || '10000', 10);
-      const maxFragments = parseInt(document.getElementById('max_fragments').value || '50000', 10);
       const status = document.getElementById('status');
       const runBtn = document.getElementById('run');
 
@@ -477,29 +679,34 @@
       status.textContent = 'Loading fragments...';
 
       try {
+        // Build filter from selected categories
+        let filter = '';
+        if (selectedCategories.size > 0) {
+          const cats = Array.from(selectedCategories).map(c => `"${c.replace(/"/g, '\\"')}"`);
+          filter = `categories:=[${cats.join(',')}]`;
+        }
+
         const fields = ['id', 'url', 'title', 'content_text', 'categories', 'hierarchy_lvl0', 'hierarchy_lvl1', 'provider'];
-        const frags = await tsFetchAll('content_fragments', fields, maxFragments, msg => status.textContent = msg);
+        const frags = await tsFetchAll('content_fragments', fields, filter, 50000, msg => status.textContent = msg);
 
         if (!frags || frags.length === 0) {
-          throw new Error('No content_fragments found in Typesense');
+          throw new Error('No content_fragments found');
         }
 
         status.textContent = `Preparing ${frags.length} fragments...`;
-
-        // Cache fragments for modal preview
         frags.forEach(f => fragmentCache.set(f.id, f));
 
         const prepared = prepareFragments(frags);
-
         const A = prepared.filter(f => f.host.endsWith(siteA));
         const B = prepared.filter(f => f.host.endsWith(siteB));
 
         status.textContent = `Comparing ${A.length} fragments from ${siteA} with ${B.length} from ${siteB}...`;
 
-        lastPairs = computePairs(A, B, metric, threshold, maxPairs, msg => status.textContent = msg);
+        lastPairs = computePairs(A, B, metric, threshold, 10000, msg => status.textContent = msg);
 
-        renderTable(lastPairs.slice(0, 200));
-        status.textContent = `Found ${lastPairs.length} similar fragment pairs (showing top 200). Threshold: ${threshold}, Metric: ${metric}`;
+        renderSimilarityTable(lastPairs.slice(0, 200));
+        const catInfo = selectedCategories.size ? ` (filtered by ${selectedCategories.size} categories)` : '';
+        status.textContent = `Found ${lastPairs.length} similar fragment pairs${catInfo}. Showing top 200. Threshold: ${threshold}, Metric: ${metric}`;
       } catch (e) {
         status.textContent = 'Error: ' + e.message;
         console.error(e);
@@ -507,10 +714,6 @@
         runBtn.disabled = false;
       }
     }
-
-    let currentPairs = [];
-    let sortColumn = 'score';
-    let sortAsc = false;
 
     const columns = [
       { key: 'fragA', label: 'Fragment A', getValue: p => (p.a.title || '').toLowerCase() },
@@ -537,7 +740,7 @@
       return 'score-low';
     }
 
-    function renderTable(pairs, preserveSort = false) {
+    function renderSimilarityTable(pairs, preserveSort = false) {
       const el = document.getElementById('results');
       if (!pairs.length) {
         el.innerHTML = '<p style="padding: 2rem; text-align: center; color: #607d8b;">No similar fragments found. Try lowering the threshold.</p>';
@@ -583,15 +786,12 @@
           const col = th.dataset.col;
           if (sortColumn === col) { sortAsc = !sortAsc; }
           else { sortColumn = col; sortAsc = col === 'fragA' || col === 'fragB'; }
-          renderTable(currentPairs, true);
+          renderSimilarityTable(currentPairs, true);
         };
       });
     }
 
-    function escHtml(s) {
-      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
+    // Modal
     function showFragment(id) {
       const f = fragmentCache.get(id);
       if (!f) {
@@ -621,15 +821,17 @@
       document.getElementById('modal-overlay').classList.remove('active');
     }
 
-    // Close modal on overlay click
-    document.getElementById('modal-overlay').addEventListener('click', (e) => {
-      if (e.target.id === 'modal-overlay') closeModal();
-    });
-
-    // Close modal on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
-    });
+    // CSV export
+    function toCSV(rows) {
+      if (!rows.length) return '';
+      const headers = Object.keys(rows[0]);
+      const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const out = [headers.map(esc).join(',')];
+      for (const r of rows) {
+        out.push(headers.map(h => esc(r[h])).join(','));
+      }
+      return out.join('\n');
+    }
 
     function download(name, text) {
       const a = document.createElement('a');
@@ -654,8 +856,24 @@
       download('fragment_similarity.csv', toCSV(rows));
     }
 
+    // Event listeners
+    document.getElementById('modal-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-overlay') closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    document.getElementById('search_btn').addEventListener('click', runSearch);
+    document.getElementById('search_query').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') runSearch();
+    });
     document.getElementById('run').addEventListener('click', runSimilarity);
     document.getElementById('export_csv').addEventListener('click', exportCSV);
+
+    // Initialize
+    loadCategories();
   </script>
 </body>
 </html>
