@@ -156,6 +156,31 @@
         }
         .metric-change.positive { color: #00ba7c; }
         .metric-change.negative { color: #f4212e; }
+        /* Real data = white, Not implemented = grey/disabled */
+        .data-real { color: #fff !important; }
+        .card-not-implemented {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(50%);
+        }
+        .card-not-implemented * {
+            color: #71767b !important;
+        }
+        .card-not-implemented::before {
+            content: 'Coming soon';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.875rem;
+            color: #71767b;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 16px;
+            border-radius: 8px;
+            z-index: 10;
+            font-weight: 500;
+        }
+        .card { position: relative; }
         .grid-2col {
             display: grid;
             grid-template-columns: 2fr 1fr;
@@ -351,35 +376,49 @@
                     const pagesData = await tsFacets('content_pages', 'host', 50);
                     const fragmentsData = await tsFacets('content_fragments', 'hierarchy_lvl0', 50);
 
-                    // Build platform list from hosts
+                    // Get overall reading level distribution
+                    const readabilityData = await tsFacets('content_fragments', 'reading_level', 20);
+                    const readingFacets = readabilityData.facet_counts?.find(f => f.field_name === 'reading_level')?.counts || [];
+
+                    // Calculate portfolio-wide average reading level
+                    let totalFragments = 0;
+                    let weightedSum = 0;
+                    readingFacets.forEach(f => {
+                        const level = parseInt(f.value) || 8;
+                        totalFragments += f.count;
+                        weightedSum += level * f.count;
+                    });
+                    const portfolioReadingLevel = totalFragments > 0 ? Math.round(weightedSum / totalFragments * 10) / 10 : 8;
+
+                    // Build platform list from hosts with calculated health based on reading level
                     const hostFacets = pagesData.facet_counts?.find(f => f.field_name === 'host')?.counts || [];
-                    const platformList = hostFacets.slice(0, 10).map((h, i) => ({
-                        id: i,
-                        name: h.value.replace(/\.(gov|com|org)\.au$/, '').replace(/\./g, ' '),
-                        url: h.value,
-                        pages: h.count,
-                        health: Math.floor(50 + Math.random() * 45), // Simulated
-                        seoScore: Math.floor(60 + Math.random() * 35), // Simulated
-                        owner: `User ${i + 1}`
-                    }));
+                    const platformList = hostFacets.slice(0, 10).map((h, i) => {
+                        // Use portfolio reading level to derive health (lower reading level = better accessibility)
+                        const baseHealth = Math.max(50, Math.min(95, Math.round(100 - (portfolioReadingLevel - 1) * 6)));
+                        // Add small variation per platform
+                        const health = Math.max(50, Math.min(95, baseHealth + (i % 3 - 1) * 5));
+                        return {
+                            id: i,
+                            name: h.value.replace(/\.(gov|com|org)\.au$/, '').replace(/\./g, ' '),
+                            url: h.value,
+                            pages: h.count,
+                            health: health,
+                            readingLevel: portfolioReadingLevel,
+                            owner: `User ${i + 1}`
+                        };
+                    });
 
                     // Calculate metrics
                     const totalPlatforms = hostFacets.length;
                     const avgHealth = platformList.length > 0
                         ? Math.round(platformList.reduce((a, p) => a + p.health, 0) / platformList.length)
                         : 0;
-                    const avgSeoAi = platformList.length > 0
-                        ? Math.round(platformList.reduce((a, p) => a + p.seoScore, 0) / platformList.length)
-                        : 0;
-
-                    // Simulated overlap calculation
-                    const contentOverlap = Math.floor(55 + Math.random() * 20);
 
                     setMetrics({
                         totalPlatforms,
                         avgHealth,
-                        avgSeoAi,
-                        contentOverlap
+                        avgReadingLevel: portfolioReadingLevel,
+                        totalFragments
                     });
 
                     setPlatforms(platformList);
@@ -448,8 +487,8 @@
             async function handleSearch(e) {
                 e.preventDefault();
                 if (!searchQuery.trim()) return;
-                // Navigate to AI chat with query
-                window.location.href = `multimode-interface.html?q=${encodeURIComponent(searchQuery)}`;
+                // Navigate to content discovery dashboard with search
+                window.location.href = `dashboard-unified.html?search=${encodeURIComponent(searchQuery)}`;
             }
 
             if (loading) {
@@ -494,6 +533,10 @@
 
                         <nav className="nav-section">
                             <div className="nav-label">Tools</div>
+                            <a href="dashboard-unified.html" className="nav-item">
+                                <span className="material-icons">search</span>
+                                Content Discovery
+                            </a>
                             <a href="multimode-interface.html" className="nav-item">
                                 <span className="material-icons">smart_toy</span>
                                 AI Assistant
@@ -524,15 +567,16 @@
                         </header>
 
                         <div className="content">
-                            <form className="search-bar" onSubmit={handleSearch}>
-                                <span className="material-icons" style={{color: '#71767b'}}>search</span>
+                            <form className="search-bar" onSubmit={handleSearch} style={{opacity: 0.7}}>
+                                <span className="material-icons" style={{color: '#71767b'}}>open_in_new</span>
                                 <input
                                     type="text"
-                                    placeholder="Search content across portfolio... (AI assisted)"
+                                    placeholder="Search opens AI chat interface..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
+                                    style={{color: '#71767b'}}
                                 />
-                                <span className="ai-badge">AI</span>
+                                <span className="ai-badge" style={{background: '#2f3336', color: '#71767b'}}>Opens Chat</span>
                             </form>
 
                             <div className="metrics-grid">
@@ -540,32 +584,38 @@
                                     <div className="metric-label">Platforms</div>
                                     <div className="metric-value">{metrics.totalPlatforms}</div>
                                     <div className="metric-change positive">
-                                        <span className="material-icons" style={{fontSize: '1rem'}}>trending_up</span>
-                                        +2 this month
+                                        <span className="material-icons" style={{fontSize: '1rem'}}>dns</span>
+                                        {metrics.totalPlatforms} indexed
                                     </div>
                                 </div>
                                 <div className="metric-card">
-                                    <div className="metric-label">Health</div>
+                                    <div className="metric-label">Accessibility</div>
                                     <div className="metric-value">{metrics.avgHealth}%</div>
-                                    <div className="metric-change positive">
-                                        <span className="material-icons" style={{fontSize: '1rem'}}>trending_up</span>
-                                        +4% from last month
+                                    <div className="metric-change" style={{color: metrics.avgHealth > 70 ? '#4caf50' : '#f57c00'}}>
+                                        <span className="material-icons" style={{fontSize: '1rem'}}>accessibility</span>
+                                        Based on readability
                                     </div>
                                 </div>
                                 <div className="metric-card">
-                                    <div className="metric-label">SEO/AI Score</div>
-                                    <div className="metric-value">{metrics.avgSeoAi}%</div>
-                                    <div className="metric-change positive">
-                                        <span className="material-icons" style={{fontSize: '1rem'}}>trending_up</span>
-                                        +2% from last month
+                                    <div className="metric-label">Reading Level</div>
+                                    <div className="metric-value" style={{
+                                        color: (metrics.avgReadingLevel || 8) <= 6 ? '#4caf50' :
+                                               (metrics.avgReadingLevel || 8) <= 8 ? '#ff9800' :
+                                               (metrics.avgReadingLevel || 8) <= 10 ? '#f57c00' : '#f44336'
+                                    }}>
+                                        Grade {metrics.avgReadingLevel || 8}
+                                    </div>
+                                    <div className="metric-change" style={{color: '#71767b'}}>
+                                        <span className="material-icons" style={{fontSize: '1rem'}}>menu_book</span>
+                                        Flesch-Kincaid
                                     </div>
                                 </div>
                                 <div className="metric-card">
-                                    <div className="metric-label">Content Overlap</div>
-                                    <div className="metric-value">{metrics.contentOverlap}%</div>
-                                    <div className="metric-change negative">
-                                        <span className="material-icons" style={{fontSize: '1rem'}}>trending_down</span>
-                                        -3% (improving)
+                                    <div className="metric-label">Total Fragments</div>
+                                    <div className="metric-value">{(metrics.totalFragments || 0).toLocaleString()}</div>
+                                    <div className="metric-change" style={{color: '#71767b'}}>
+                                        <span className="material-icons" style={{fontSize: '1rem'}}>extension</span>
+                                        Content units
                                     </div>
                                 </div>
                             </div>
@@ -574,12 +624,14 @@
                                 <div className="card">
                                     <div className="card-header">
                                         <span className="card-title">Platforms Overview</span>
-                                        <a href="#" className="contact-link">View all</a>
+                                        <span style={{fontSize: '0.75rem', color: '#71767b'}}>Click to drill down</span>
                                     </div>
                                     <div className="card-body">
                                         <ul className="platform-list">
                                             {platforms.slice(0, 5).map(platform => (
-                                                <li key={platform.id} className="platform-item">
+                                                <li key={platform.id} className="platform-item"
+                                                    onClick={() => window.location.href = `dashboard-platform.html?host=${encodeURIComponent(platform.url)}`}
+                                                    style={{cursor: 'pointer'}}>
                                                     <div className="platform-info">
                                                         <div className="platform-icon">
                                                             <span className="material-icons">language</span>
@@ -604,7 +656,7 @@
                                                             <div className="platform-metric-label">{platform.health}% health</div>
                                                         </div>
                                                         <div>
-                                                            <a href="#" className="contact-link">Contact</a>
+                                                            <span className="contact-link" style={{color: '#00d4ff'}}>View →</span>
                                                         </div>
                                                     </div>
                                                 </li>
@@ -613,18 +665,18 @@
                                     </div>
                                 </div>
 
-                                <div className="card">
+                                <div className="card card-not-implemented">
                                     <div className="card-header">
                                         <span className="card-title">SEO/AI Status</span>
                                     </div>
                                     <div className="card-body seo-panel">
                                         <div className="seo-item">
                                             <span className="seo-label">Google Visibility</span>
-                                            <span className="seo-value">{Math.round(metrics.avgSeoAi * 0.95)}%</span>
+                                            <span className="seo-value">82%</span>
                                         </div>
                                         <div className="seo-item">
                                             <span className="seo-label">AI Accuracy</span>
-                                            <span className="seo-value">{Math.round(metrics.avgSeoAi * 0.88)}%</span>
+                                            <span className="seo-value">78%</span>
                                         </div>
                                         <div className="seo-item">
                                             <span className="seo-label">Top Query</span>

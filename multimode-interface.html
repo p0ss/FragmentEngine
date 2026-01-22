@@ -210,6 +210,7 @@
                 FormControlLabel,
                 FormControl,
                 FormLabel,
+                FormGroup,
                 Avatar,
                 Stack,
                 Fade,
@@ -218,6 +219,13 @@
                 CircularProgress,
                 Link,
             } = MaterialUI;
+
+            // Icons
+            const SettingsIcon = () => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+            );
 
                 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -239,6 +247,41 @@
                 journeyBuild: `${API_BASE_URL}/api/journey/profile/build`,
                 journeyData: (id) => `${API_BASE_URL}/api/journey/journey/${id}`,
                 journeyViz: (id) => `${API_BASE_URL}/api/journey/journey/${id}/visualization`,
+            };
+
+            // Host configuration - stored in localStorage, user-configurable
+            // Default: exclude analysis-only hosts, but user can enable them
+            const DEFAULT_EXCLUDED_HOSTS = [
+                'centrelink.gov.au',
+                'operational.servicesaustralia.gov.au',
+                'medicare.gov.au',
+                'csda.gov.au'
+            ];
+
+            // Load excluded hosts from localStorage or use defaults
+            const getStoredExcludedHosts = () => {
+                try {
+                    const stored = localStorage.getItem('excludedHosts');
+                    if (stored) return JSON.parse(stored);
+                } catch (e) {}
+                return DEFAULT_EXCLUDED_HOSTS;
+            };
+
+            // Global mutable ref for excluded hosts (updated by config modal)
+            let currentExcludedHosts = getStoredExcludedHosts();
+
+            // Helper to filter out excluded hosts from results
+            const filterExcludedHosts = (results) => {
+                if (!results || !Array.isArray(results)) return results;
+                return results.filter(item => {
+                    const url = item.url || item.document?.url || '';
+                    try {
+                        const host = new URL(url).hostname;
+                        return !currentExcludedHosts.some(excluded => host.includes(excluded));
+                    } catch {
+                        return true; // Keep items with invalid URLs
+                    }
+                });
             };
 
             // Category to Life Event mappings - FIXED TO MATCH ACTUAL API DATA
@@ -355,6 +398,33 @@
                 const [results, setResults] = useState([]);
                 const [loading, setLoading] = useState(false);
                 const [error, setError] = useState(null);
+
+                // Host configuration state
+                const [configOpen, setConfigOpen] = useState(false);
+                const [availableHosts, setAvailableHosts] = useState([]);
+                const [excludedHosts, setExcludedHosts] = useState(getStoredExcludedHosts());
+
+                // Known available hosts (from Typesense index)
+                const KNOWN_HOSTS = [
+                    { value: 'operational.servicesaustralia.gov.au', count: 17679, label: 'Operational Blueprint' },
+                    { value: 'my.gov.au', count: 510, label: 'myGov' },
+                    { value: 'www.servicesaustralia.gov.au', count: 100, label: 'Services Australia' },
+                    { value: 'centrelink.gov.au', count: 1, label: 'Centrelink (legacy)' }
+                ];
+
+                // Set available hosts on mount
+                useEffect(() => {
+                    setAvailableHosts(KNOWN_HOSTS);
+                }, []);
+
+                // Update excluded hosts and persist
+                const updateExcludedHosts = (newExcluded) => {
+                    setExcludedHosts(newExcluded);
+                    currentExcludedHosts = newExcluded; // Update global ref for filter function
+                    try {
+                        localStorage.setItem('excludedHosts', JSON.stringify(newExcluded));
+                    } catch (e) {}
+                };
 
                 // Selection state
                 const [selections, setSelections] = useState({
@@ -914,8 +984,9 @@ Return ONLY a JSON array of the indices in the optimal reading order, like: [2, 
                                 const data = await response.json();
                                 console.log(`Search results for category "${category}":`, data.found, 'results found');
                                 if (data.results) {
-                                    // Process each result and add eligibility scoring
-                                    const processedResults = data.results.map((hit) => ({
+                                    // Filter excluded hosts and process each result with eligibility scoring
+                                    const filteredHits = filterExcludedHosts(data.results.map(h => ({ url: h.document?.url, ...h }))).map(h => ({ document: h.document || h }));
+                                    const processedResults = filteredHits.map((hit) => ({
                                         id: hit.document.id,
                                         url: hit.document.url,
                                         title: hit.document.title,
@@ -1176,9 +1247,9 @@ Return ONLY a JSON array of the indices in the optimal reading order, like: [2, 
                         const data = await response.json();
                         console.log('API response data:', data);
                         
-                        const filteredResults = (data.results || []);
+                        const filteredResults = filterExcludedHosts(data.results || []);
 
-                        console.log('Total results from API:', data.results.length);
+                        console.log('Total results from API:', data.results?.length);
                         console.log('Filtered results:', filteredResults.length);
                         console.log('Sample results:', filteredResults.slice(0, 3).map(r => ({ 
                             title: r.title, 
@@ -1246,7 +1317,8 @@ Return ONLY a JSON array of the indices in the optimal reading order, like: [2, 
                         if (!response.ok) throw new Error('Failed to load personalized content');
                         const data = await response.json();
 
-                        const processed = (data.results || []).map((hit) => ({
+                        const filteredHits = filterExcludedHosts((data.results || []).map(h => ({ url: h.document?.url, ...h })));
+                        const processed = filteredHits.map((hit) => ({
                             id: hit.document.id,
                             url: hit.document.url,
                             title: hit.document.title,
@@ -1534,7 +1606,8 @@ Return ONLY a JSON array of the indices in the optimal reading order, like: [2, 
                         if (!response.ok) throw new Error("Failed to search");
                         const data = await response.json();
 
-                        const processedResults = data.results.map((hit) => ({
+                        const filteredHits = filterExcludedHosts((data.results || []).map(h => ({ url: h.document?.url, ...h })));
+                        const processedResults = filteredHits.map((hit) => ({
                             id: hit.document.id,
                             url: hit.document.url,
                             title: hit.document.title,
@@ -1561,9 +1634,9 @@ Return ONLY a JSON array of the indices in the optimal reading order, like: [2, 
                         setResults(cleaned);
                         
                         // Generate AI summary for search mode
-                        if (mode === "search" && data.results.length > 0) {
+                        if (mode === "search" && filteredHits.length > 0) {
                             setAiSummary(null); // Clear previous summary
-                            generateSummary(data.results);
+                            generateSummary(filteredHits);
                         }
                         
                         // Reorder content for home mode
@@ -3491,7 +3564,11 @@ Remember to:
                                                                 </Typography>
                                                                 {msg.sources.map((source, idx) => (
                                                                     <Typography key={idx} variant="caption" sx={{ display: 'block', ml: 1 }}>
-                                                                        • {source.title} ({source.provider})
+                                                                        • {source.url ? (
+                                                                            <Link href={source.url} target="_blank" rel="noopener noreferrer" sx={{ color: 'primary.main' }}>
+                                                                                {source.title}
+                                                                            </Link>
+                                                                        ) : source.title} ({source.provider})
                                                                     </Typography>
                                                                 ))}
                                                             </Box>
@@ -4442,6 +4519,66 @@ Remember to:
                                 )}
                         </Container>
 
+                        {/* Host Configuration Modal */}
+                        <Dialog open={configOpen} onClose={() => setConfigOpen(false)} maxWidth="sm" fullWidth>
+                            <DialogTitle>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <SettingsIcon />
+                                    Content Sources
+                                </Box>
+                            </DialogTitle>
+                            <DialogContent>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    Select which government websites to include in search results.
+                                    Unchecked sources will be hidden from search.
+                                </Typography>
+                                <FormGroup>
+                                    {availableHosts.map(host => (
+                                        <FormControlLabel
+                                            key={host.value}
+                                            control={
+                                                <Checkbox
+                                                    checked={!excludedHosts.includes(host.value)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            updateExcludedHosts(excludedHosts.filter(h => h !== host.value));
+                                                        } else {
+                                                            updateExcludedHosts([...excludedHosts, host.value]);
+                                                        }
+                                                    }}
+                                                />
+                                            }
+                                            label={
+                                                <Box>
+                                                    <Typography variant="body1">{host.value}</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {host.count.toLocaleString()} pages
+                                                    </Typography>
+                                                </Box>
+                                            }
+                                        />
+                                    ))}
+                                </FormGroup>
+                                {availableHosts.length === 0 && (
+                                    <Typography color="text.secondary">Loading available sources...</Typography>
+                                )}
+                                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                    <Button size="small" onClick={() => updateExcludedHosts([])}>
+                                        Select All
+                                    </Button>
+                                    <Button size="small" onClick={() => updateExcludedHosts(availableHosts.map(h => h.value))}>
+                                        Deselect All
+                                    </Button>
+                                    <Button size="small" onClick={() => updateExcludedHosts(DEFAULT_EXCLUDED_HOSTS)}>
+                                        Reset to Default
+                                    </Button>
+                                </Box>
+                            </DialogContent>
+                            <DialogActions>
+                                <Button onClick={() => setConfigOpen(false)}>Close</Button>
+                            </DialogActions>
+                        </Dialog>
+
                         {/* Footer */}
                         <Box
                             component="footer"
@@ -4467,6 +4604,17 @@ Remember to:
                                             </ListItem>
                                             <ListItem>
                                                 <ListItemText primary="Contact us" />
+                                            </ListItem>
+                                            <ListItem
+                                                button
+                                                onClick={() => setConfigOpen(true)}
+                                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+                                            >
+                                                <ListItemText
+                                                    primary="Content Sources"
+                                                    secondary={`${availableHosts.length - excludedHosts.length}/${availableHosts.length} enabled`}
+                                                    secondaryTypographyProps={{ sx: { color: 'rgba(255,255,255,0.6)' } }}
+                                                />
                                             </ListItem>
                                         </List>
                                     </Grid>

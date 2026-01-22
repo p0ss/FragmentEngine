@@ -101,10 +101,11 @@ router.get('/models', async (req, res) => {
         // Default models - can be customized via BEDROCK_MODELS env var
         // Format: "modelId:Label,modelId2:Label2"
         const defaultModels = [
+          // Claude 3.5 Sonnet v2 is currently the best available Claude model
+          { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', label: 'Claude 3.5 Sonnet v2' },
           { id: 'mistral.mistral-large-2402-v1:0', label: 'Mistral Large' },
-          { id: 'anthropic.claude-sonnet-4-5-20250929-v1:0', label: 'Claude 4.5 Sonnet' },
           { id: 'nvidia-nemotron-super-49b-nim', label: 'NVIDIA Nemotron 49B' },
-          // Fallback models that work with on-demand throughput
+          // Older Claude models
           { id: 'anthropic.claude-3-sonnet-20240229-v1:0', label: 'Claude 3 Sonnet' },
           { id: 'anthropic.claude-3-haiku-20240307-v1:0', label: 'Claude 3 Haiku' },
         ];

@@ -156,6 +156,31 @@
             font-weight: 700;
             color: #fff;
         }
+        /* Real data = white, Not implemented = grey/disabled */
+        .data-real { color: #fff !important; }
+        .card-not-implemented {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(50%);
+        }
+        .card-not-implemented * {
+            color: #71767b !important;
+        }
+        .card-not-implemented::before {
+            content: 'Coming soon';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.875rem;
+            color: #71767b;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 16px;
+            border-radius: 8px;
+            z-index: 10;
+            font-weight: 500;
+        }
+        .card { position: relative; }
         .grid-3col {
             display: grid;
             grid-template-columns: 2fr 1fr 1fr;
@@ -374,22 +399,26 @@
             const [platforms, setPlatforms] = useState([]);
             const [selectedPlatform, setSelectedPlatform] = useState('');
             const [topics, setTopics] = useState([]);
+            const [unhealthyContent, setUnhealthyContent] = useState([]);
             const [metrics, setMetrics] = useState({
                 pages: 0,
                 topics: 0,
                 health: 0,
-                seoAi: 0,
-                watchlist: 5
+                fragments: 0,
+                readability: 8
             });
-            const [watchlist, setWatchlist] = useState([]);
-            const [contacts, setContacts] = useState([]);
             const [alerts, setAlerts] = useState([]);
             const [searchQuery, setSearchQuery] = useState('');
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
+            // Read host from URL params and always load platforms list
             useEffect(() => {
-                loadPlatforms();
+                const params = new URLSearchParams(window.location.search);
+                const hostParam = params.get('host');
+
+                // Always load platforms for the dropdown
+                loadPlatforms(hostParam);
             }, []);
 
             useEffect(() => {
@@ -409,29 +438,118 @@
                 };
             }, [topics]);
 
-            async function loadPlatforms() {
+            async function loadPlatforms(preselectedHost = null) {
                 try {
                     const data = await tsFacets('content_pages', 'host', '', 50);
                     const hostFacets = data.facet_counts?.find(f => f.field_name === 'host')?.counts || [];
                     setPlatforms(hostFacets.map(h => ({ value: h.value, label: h.value, count: h.count })));
-                    if (hostFacets.length > 0) {
+
+                    // Use preselected host from URL param, or default to first platform
+                    if (preselectedHost) {
+                        setSelectedPlatform(preselectedHost);
+                    } else if (hostFacets.length > 0) {
                         setSelectedPlatform(hostFacets[0].value);
+                    } else {
+                        // No platforms found, stop loading
+                        setLoading(false);
                     }
                 } catch (err) {
                     console.error('Error loading platforms:', err);
+                    setLoading(false);
                 }
             }
 
             async function loadPlatformData() {
+                console.log('loadPlatformData called, selectedPlatform:', selectedPlatform);
                 setLoading(true);
                 try {
                     // Get topics (life_events) for this platform from content_pages
-                    const lifeData = await tsFacets('content_pages', 'life_events', `host:=${selectedPlatform}`, 20);
-                    const catData = await tsFacets('content_pages', 'categories', `host:=${selectedPlatform}`, 20);
+                    const lifeData = await tsFacets('content_pages', 'life_events', `host:=\`${selectedPlatform}\``, 20);
+                    const catData = await tsFacets('content_pages', 'categories', `host:=\`${selectedPlatform}\``, 20);
 
                     // Combine life events and categories as "topics"
                     const lifeFacets = lifeData.facet_counts?.find(f => f.field_name === 'life_events')?.counts || [];
                     const catFacets = catData.facet_counts?.find(f => f.field_name === 'categories')?.counts || [];
+
+                    // Get page count and URLs for platform
+                    const pageData = await tsSearch('content_pages', {
+                        q: '*',
+                        query_by: 'title',
+                        filter_by: `host:=\`${selectedPlatform}\``,
+                        include_fields: 'url',
+                        per_page: 250
+                    });
+                    const pageUrls = (pageData.hits || []).map(h => h.document.url);
+
+                    // Helper to get URL path without query params or hash
+                    function getUrlPath(url) {
+                        try {
+                            const u = new URL(url);
+                            return u.origin + u.pathname;
+                        } catch {
+                            return url.split('?')[0].split('#')[0];
+                        }
+                    }
+
+                    // Get page URL paths for matching
+                    const pageUrlPaths = pageUrls.map(u => getUrlPath(u));
+
+                    // Fetch fragments without sorting (to get mix of all platforms), then filter and sort client-side
+                    console.log('Loading fragments for platform:', selectedPlatform);
+
+                    const fragData = await tsSearch('content_fragments', {
+                        q: '*',
+                        query_by: 'title,content_text',
+                        include_fields: 'id,title,url,reading_level,content_text',
+                        per_page: 250
+                    });
+                    console.log('Fetched fragments:', fragData.found, 'total,', fragData.hits?.length, 'returned');
+
+                    // Filter to fragments matching this platform URL
+                    let platformFragments = (fragData.hits || [])
+                        .filter(hit => (hit.document.url || '').includes(selectedPlatform));
+                    console.log('After platform filter:', platformFragments.length, 'matches for', selectedPlatform);
+
+                    // If no results in default order, try with last_seen_at:desc (gets different fragments)
+                    if (platformFragments.length === 0) {
+                        console.log('No matches, trying with last_seen_at sort...');
+                        const fragData2 = await tsSearch('content_fragments', {
+                            q: '*',
+                            query_by: 'title,content_text',
+                            include_fields: 'id,title,url,reading_level,content_text',
+                            sort_by: 'last_seen_at:desc',
+                            per_page: 250
+                        });
+                        platformFragments = (fragData2.hits || [])
+                            .filter(hit => (hit.document.url || '').includes(selectedPlatform));
+                        console.log('After fallback search:', platformFragments.length, 'matches');
+                    }
+
+                    // Map to objects, deduplicate by title, and sort by reading level
+                    const seenTitles = new Set();
+                    platformFragments = platformFragments
+                        .map(hit => ({
+                            id: hit.document.id,
+                            title: hit.document.title || 'Untitled',
+                            url: hit.document.url,
+                            reading_level: hit.document.reading_level || 8,
+                            preview: (hit.document.content_text || '').slice(0, 100)
+                        }))
+                        .filter(f => {
+                            // Deduplicate by title (keep first occurrence)
+                            const titleKey = f.title.toLowerCase().trim();
+                            if (seenTitles.has(titleKey)) return false;
+                            seenTitles.add(titleKey);
+                            return true;
+                        })
+                        .sort((a, b) => b.reading_level - a.reading_level);
+
+                    // Calculate reading level metrics from actual fragments
+                    const readingLevels = platformFragments.map(f => f.reading_level).filter(r => r > 0);
+                    const totalFragments = platformFragments.length;
+                    const avgReadingLevel = readingLevels.length > 0
+                        ? Math.round(readingLevels.reduce((a, b) => a + b, 0) / readingLevels.length * 10) / 10
+                        : 8;
 
                     const topicList = [...lifeFacets.slice(0, 4), ...catFacets.slice(0, 4)]
                         .filter((t, i, arr) => arr.findIndex(x => x.value === t.value) === i)
@@ -440,64 +558,43 @@
                             id: i,
                             name: t.value,
                             pages: t.count,
-                            health: Math.floor(70 + Math.random() * 25),
-                            overlap: Math.random() > 0.5 ? `${Math.floor(30 + Math.random() * 40)}% with dss.gov.au` : null,
-                            hasFragment: Math.random() > 0.6,
-                            needsReview: Math.random() > 0.8
+                            health: Math.max(60, Math.min(95, Math.round(100 - (avgReadingLevel - 1) * 6))),
+                            overlap: null,
+                            hasFragment: t.count > 3,
+                            needsReview: avgReadingLevel > 10
                         }));
 
                     setTopics(topicList);
 
-                    // Get page count for platform
-                    const pageData = await tsSearch('content_pages', {
-                        q: '*',
-                        query_by: 'title',
-                        filter_by: `host:=${selectedPlatform}`,
-                        per_page: 0
-                    });
-
-                    // Calculate metrics
-                    const avgHealth = topicList.length > 0
-                        ? Math.round(topicList.reduce((a, t) => a + t.health, 0) / topicList.length)
-                        : 75;
+                    // Calculate metrics with real readability
+                    const accessibilityScore = Math.max(50, Math.min(98, Math.round(100 - (avgReadingLevel - 1) * 8)));
 
                     setMetrics({
                         pages: pageData.found || 0,
                         topics: topicList.length,
-                        health: avgHealth,
-                        seoAi: Math.floor(70 + Math.random() * 20),
-                        watchlist: 5
+                        health: accessibilityScore,
+                        readability: avgReadingLevel,
+                        fragments: totalFragments
                     });
 
-                    // Generate sample watchlist
-                    setWatchlist([
-                        { id: 1, title: 'Carer Payment eligibility page' },
-                        { id: 2, title: 'Getting support if you\'re caring...' },
-                        { id: 3, title: 'Carer Supplement annual payment' },
-                        { id: 4, title: 'Young Carer Bursary Program' },
-                        { id: 5, title: 'Respite care options' }
-                    ]);
+                    // Set unhealthy content (already sorted by reading_level desc)
+                    console.log('Setting unhealthyContent:', platformFragments.slice(0, 10));
+                    setUnhealthyContent(platformFragments.slice(0, 10));
 
-                    // Generate sample contacts
-                    setContacts([
-                        { id: 1, name: 'Jane Wilson', role: 'Carers Payment', initials: 'JW' },
-                        { id: 2, name: 'Mike Chen', role: 'Medicare', initials: 'MC' }
-                    ]);
-
-                    // Generate alerts
+                    // Generate alerts based on reading level
                     const newAlerts = [];
-                    const lowHealth = topicList.find(t => t.health < 75);
-                    if (lowHealth) {
-                        newAlerts.push({ type: 'warning', message: `${lowHealth.name} topic below 'health' threshold` });
+                    if (avgReadingLevel > 10) {
+                        newAlerts.push({ type: 'warning', message: `Average reading level (Grade ${avgReadingLevel}) is above recommended Grade 8` });
                     }
-                    const withFragment = topicList.find(t => t.hasFragment);
-                    if (withFragment) {
-                        newAlerts.push({ type: 'info', message: `New fragment available for ${withFragment.name}` });
+                    if (platformFragments.length > 0 && platformFragments[0].reading_level > 11) {
+                        newAlerts.push({ type: 'error', message: `${platformFragments.length} fragments at Grade 12+ reading level` });
                     }
                     setAlerts(newAlerts);
 
                 } catch (err) {
                     console.error('Error loading platform data:', err);
+                    console.error('Error stack:', err.stack);
+                    alert('Error loading data: ' + err.message);
                 }
                 setLoading(false);
             }
@@ -557,7 +654,7 @@
             async function handleSearch(e) {
                 e.preventDefault();
                 if (!searchQuery.trim()) return;
-                window.location.href = `multimode-interface.html?q=${encodeURIComponent(searchQuery)}`;
+                window.location.href = `dashboard-unified.html?search=${encodeURIComponent(searchQuery)}`;
             }
 
             return (
@@ -597,6 +694,10 @@
 
                         <nav className="nav-section">
                             <div className="nav-label">Tools</div>
+                            <a href="dashboard-unified.html" className="nav-item">
+                                <span className="material-icons">search</span>
+                                Content Discovery
+                            </a>
                             <a href="multimode-interface.html" className="nav-item">
                                 <span className="material-icons">smart_toy</span>
                                 AI Assistant
@@ -641,15 +742,16 @@
                                 </div>
                             ) : (
                                 <>
-                                    <form className="search-bar" onSubmit={handleSearch}>
-                                        <span className="material-icons" style={{color: '#71767b'}}>search</span>
+                                    <form className="search-bar" onSubmit={handleSearch} style={{opacity: 0.7}}>
+                                        <span className="material-icons" style={{color: '#71767b'}}>open_in_new</span>
                                         <input
                                             type="text"
-                                            placeholder="Search topics & content... (AI assisted)"
+                                            placeholder="Search opens AI chat interface..."
                                             value={searchQuery}
                                             onChange={e => setSearchQuery(e.target.value)}
+                                            style={{color: '#71767b'}}
                                         />
-                                        <span className="ai-badge">AI</span>
+                                        <span className="ai-badge" style={{background: '#2f3336', color: '#71767b'}}>Opens Chat</span>
                                     </form>
 
                                     <div className="metrics-grid">
@@ -658,20 +760,26 @@
                                             <div className="metric-value">{metrics.pages}</div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">Topics</div>
-                                            <div className="metric-value">{metrics.topics}</div>
+                                            <div className="metric-label">Fragments</div>
+                                            <div className="metric-value">{metrics.fragments || 0}</div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">Health</div>
+                                            <div className="metric-label">Accessibility</div>
                                             <div className="metric-value">{metrics.health}%</div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">SEO/AI</div>
-                                            <div className="metric-value">{metrics.seoAi}%</div>
+                                            <div className="metric-label">Reading Level</div>
+                                            <div className="metric-value" style={{
+                                                color: (metrics.readability || 8) <= 6 ? '#4caf50' :
+                                                       (metrics.readability || 8) <= 8 ? '#ff9800' :
+                                                       (metrics.readability || 8) <= 10 ? '#f57c00' : '#f44336'
+                                            }}>
+                                                Grade {metrics.readability || 8}
+                                            </div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">Watchlist</div>
-                                            <div className="metric-value">{metrics.watchlist}</div>
+                                            <div className="metric-label">Topics</div>
+                                            <div className="metric-value">{metrics.topics}</div>
                                         </div>
                                     </div>
 
@@ -679,18 +787,18 @@
                                         <div className="card">
                                             <div className="card-header">
                                                 <span className="card-title">Topics</span>
-                                                <a href="dashboard-topic.html" className="contact-link">View all</a>
+                                                <span style={{fontSize: '0.75rem', color: '#71767b'}}>Click to drill down</span>
                                             </div>
                                             <div className="card-body">
                                                 <ul className="topic-list">
                                                     {topics.map(topic => (
-                                                        <li key={topic.id} className="topic-item" onClick={() => window.location.href = 'dashboard-topic.html'}>
+                                                        <li key={topic.id} className="topic-item"
+                                                            onClick={() => window.location.href = `dashboard-topic.html?topic=${encodeURIComponent(topic.name)}&host=${encodeURIComponent(selectedPlatform)}`}
+                                                            style={{cursor: 'pointer'}}>
                                                             <div className="topic-info">
                                                                 <div className="topic-name">{topic.name}</div>
                                                                 <div className="topic-meta">
                                                                     <span>{topic.pages} pages</span>
-                                                                    {topic.overlap && <span className="overlap-indicator">{topic.overlap}</span>}
-                                                                    {topic.hasFragment && <span className="fragment-badge">Fragment available</span>}
                                                                     {topic.needsReview && <span style={{color: '#f4212e'}}>Needs review</span>}
                                                                 </div>
                                                             </div>
@@ -705,44 +813,60 @@
                                             </div>
                                         </div>
 
-                                        <div className="card">
+                                        <div className="card" style={{gridColumn: 'span 2'}}>
                                             <div className="card-header">
-                                                <span className="card-title">Watchlist</span>
+                                                <span className="card-title">Content by Readability (Hardest First)</span>
+                                                <span style={{fontSize: '0.75rem', color: '#71767b'}}>
+                                                    {metrics.fragments} fragments total • Click to view page
+                                                </span>
                                             </div>
                                             <div className="card-body">
-                                                {watchlist.map(item => (
-                                                    <div key={item.id} className="watchlist-item">
-                                                        <span className="material-icons">star</span>
-                                                        <span className="watchlist-title">{item.title}</span>
-                                                        <span className="material-icons watchlist-action">more_vert</span>
+                                                {unhealthyContent.length === 0 ? (
+                                                    <div style={{textAlign: 'center', padding: '2rem', color: '#71767b'}}>
+                                                        No content found for this platform
                                                     </div>
-                                                ))}
+                                                ) : (
+                                                    <ul className="topic-list">
+                                                        {unhealthyContent.map(content => (
+                                                            <li key={content.id} className="topic-item"
+                                                                onClick={() => window.location.href = `dashboard-content.html?page_url=${encodeURIComponent((content.url || '').split('#')[0])}`}
+                                                                style={{cursor: 'pointer'}}>
+                                                                <div className="topic-info">
+                                                                    <div className="topic-name">{content.title}</div>
+                                                                    <div className="topic-meta" style={{fontSize: '0.7rem', color: '#71767b'}}>
+                                                                        {content.preview}...
+                                                                    </div>
+                                                                </div>
+                                                                <div className="topic-metrics">
+                                                                    <span style={{
+                                                                        padding: '4px 8px',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '0.75rem',
+                                                                        backgroundColor: content.reading_level <= 6 ? '#e8f5e9' : content.reading_level <= 8 ? '#fff3e0' : content.reading_level <= 10 ? '#fff8e1' : '#ffebee',
+                                                                        color: content.reading_level <= 6 ? '#2e7d32' : content.reading_level <= 8 ? '#ef6c00' : content.reading_level <= 10 ? '#f57c00' : '#c62828'
+                                                                    }}>
+                                                                        Grade {content.reading_level}
+                                                                    </span>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
                                             </div>
+                                            <a
+                                                href={`dashboard-unified.html?platform=${encodeURIComponent(selectedPlatform)}`}
+                                                className="view-all"
+                                            >
+                                                View all {metrics.fragments} fragments in search
+                                            </a>
                                         </div>
 
-                                        <div className="card">
-                                            <div className="card-header">
-                                                <span className="card-title">Content Owners</span>
-                                            </div>
-                                            <div className="card-body">
-                                                {contacts.map(contact => (
-                                                    <div key={contact.id} className="contact-item">
-                                                        <div className="contact-avatar">{contact.initials}</div>
-                                                        <div className="contact-info">
-                                                            <div className="contact-name">{contact.name}</div>
-                                                            <div className="contact-role">{contact.role}</div>
-                                                        </div>
-                                                        <a href="#" className="contact-link">Contact</a>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div className="grid-2col">
                                         <div className="card">
                                             <div className="card-header">
-                                                <span className="card-title">Topics by Health</span>
+                                                <span className="card-title">Reading Level Distribution</span>
                                             </div>
                                             <div className="card-body">
                                                 <div className="chart-container">

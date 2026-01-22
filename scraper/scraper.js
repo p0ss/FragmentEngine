@@ -20,10 +20,10 @@ class MyGovScraper {
   constructor(cfg) {
     this.cfg = cfg;
     this.typesense = new Typesense.Client({
-      nodes: [{ 
-        host: process.env.TYPESENSE_HOST || 'localhost', 
-        port: parseInt(process.env.TYPESENSE_PORT || '8108', 10), 
-        protocol: 'http' 
+      nodes: [{
+        host: process.env.TYPESENSE_HOST || 'localhost',
+        port: parseInt(process.env.TYPESENSE_PORT || '8108', 10),
+        protocol: 'http'
       }],
       apiKey: process.env.TYPESENSE_API_KEY || 'xyz123abc',
       connectionTimeoutSeconds: 10
@@ -34,6 +34,8 @@ class MyGovScraper {
     this.requestCount = 0;
     this.startTime = Date.now();
     this.monitor = new ScraperMonitor();
+    this.targetHost = null; // Set during run() for host-specific pruning
+    this.pendingCrawls = []; // Track all crawl promises for proper completion
   }
 
   async prepareCollection() {
@@ -82,6 +84,14 @@ class MyGovScraper {
   }
 
   async run(startUrl) {
+    // Extract target host for host-specific pruning
+    try {
+      this.targetHost = new URL(startUrl).hostname;
+      console.log(`Target host for this crawl: ${this.targetHost}`);
+    } catch (e) {
+      console.warn('Could not extract host from startUrl:', e.message);
+    }
+
     await this.prepareCollection();
 
     const launchArgsBase = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
@@ -125,8 +135,20 @@ class MyGovScraper {
         );
       }
       
-      // Then crawl normally
+      // Then crawl normally from start URL
       await this.crawl(browser, startUrl, robots);
+
+      // Wait for all queued child crawls to complete (including newly added ones)
+      // Keep waiting until no new crawls are being added
+      let waitedCount = 0;
+      while (this.pendingCrawls.length > waitedCount) {
+        const currentCount = this.pendingCrawls.length;
+        console.log(`Waiting for ${currentCount - waitedCount} queued crawls to complete (${waitedCount} already done, ${currentCount} total)...`);
+        await Promise.all(this.pendingCrawls.slice(waitedCount));
+        waitedCount = currentCount;
+      }
+      console.log(`All ${waitedCount} crawls complete`);
+
       await this.indexFragments();
       await this.pruneStaleDocs();
       
@@ -194,31 +216,39 @@ class MyGovScraper {
         }
       });
 
+      console.log(`  [${url}] Loading page...`);
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      
+      console.log(`  [${url}] Page loaded, waiting for content...`);
+
       // Wait for main content
       await page.waitForSelector('main, #main-content, .main-content, article', { timeout: 5000 }).catch(() => {});
-      
+      console.log(`  [${url}] Extracting content...`);
+
       const html = await page.content();
       const $ = cheerio.load(html);
       const frags = await this.extractFragments($, url, page);
       this.fragments.push(...frags);
-      
+      console.log(`  [${url}] Extracted ${frags.length} fragments`);
+
       this.monitor.recordCrawl(url, true, Date.now() - crawlStart);
       this.monitor.stats.fragmentsExtracted += frags.length;
 
       if (depth < this.cfg.maxDepth) {
-        const links = await page.evaluate(() => 
+        console.log(`  [${url}] Extracting links...`);
+        const links = await page.evaluate(() =>
           Array.from(document.querySelectorAll('a[href]'))
             .map(a => ({ href: a.href, text: a.textContent }))
         );
-        
+
+        // Get the current page's origin for filtering
+        const currentOrigin = new URL(url).origin;
+
         // Filter and prioritize links
         const priorityLinks = links
           .filter(l => {
             try {
               const linkUrl = new URL(l.href);
-              return linkUrl.origin === new URL(location.href).origin &&
+              return linkUrl.origin === currentOrigin &&
                      !l.href.match(/\.(pdf|doc|docx|xls|xlsx)$/i) &&
                      !l.href.includes('#') &&
                      !this.cfg.excludePatterns.some(pattern => pattern.test(l.href));
@@ -233,12 +263,15 @@ class MyGovScraper {
           })
           .slice(0, this.cfg.maxLinksPerPage)
           .map(l => l.href);
-        
-        await Promise.all(
-          priorityLinks.map(link => 
-            this.limit(() => this.crawl(browser, link, robots, depth + 1))
-          )
-        );
+
+        console.log(`  [${url}] Found ${priorityLinks.length} links to follow`);
+
+        // Queue child crawls WITHOUT awaiting - prevents deadlock with concurrency limit
+        // Track promises so we can wait for completion before indexing
+        priorityLinks.forEach(link => {
+          const crawlPromise = this.limit(() => this.crawl(browser, link, robots, depth + 1));
+          this.pendingCrawls.push(crawlPromise);
+        });
       }
     } catch (e) {
       console.error(`Crawl error (${retries} retries left)`, url, e.message);
@@ -464,18 +497,61 @@ class MyGovScraper {
 
   async indexFragments() {
     console.log(`Indexing ${this.fragments.length} fragments...`);
+    // Debug: log first fragment's keys to verify content_hash is included
+    if (this.fragments.length > 0) {
+      const sampleFrag = this.fragments[0];
+      console.log('Sample fragment keys:', Object.keys(sampleFrag).join(', '));
+      console.log('Sample content_hash:', sampleFrag.content_hash ? sampleFrag.content_hash.substring(0, 16) + '...' : 'NULL');
+      // Deep debug: check if content_hash is enumerable and accessible
+      console.log('content_hash in sampleFrag:', 'content_hash' in sampleFrag);
+      console.log('content_hash value type:', typeof sampleFrag.content_hash);
+      console.log('JSON.stringify includes content_hash:', JSON.stringify(sampleFrag).includes('content_hash'));
+    }
     const coll = this.typesense.collections('content_fragments').documents();
     
     let indexed = 0;
+    // Use direct HTTP import to ensure all fields are preserved
+    const tsHost = process.env.TYPESENSE_HOST || 'localhost';
+    const tsPort = process.env.TYPESENSE_PORT || '8108';
+    const tsKey = process.env.TYPESENSE_API_KEY || 'xyz123abc';
+    const importUrl = `http://${tsHost}:${tsPort}/collections/content_fragments/documents/import?action=upsert`;
+
     for (let i = 0; i < this.fragments.length; i += 100) {
       const batch = this.fragments.slice(i, i + 100);
       try {
-        const result = await coll.import(batch, { action: 'upsert' });
-        indexed += batch.length;
+        // Convert batch to JSONL format
+        const jsonl = batch.map(doc => JSON.stringify(doc)).join('\n');
+
+        // Debug: print first document's content_hash before import
+        if (i === 0 && batch.length > 0) {
+          console.log('Pre-import check - content_hash:', batch[0].content_hash ? batch[0].content_hash.substring(0, 20) + '...' : 'NULL');
+        }
+
+        const response = await fetch(importUrl, {
+          method: 'POST',
+          headers: {
+            'X-TYPESENSE-API-KEY': tsKey,
+            'Content-Type': 'text/plain'
+          },
+          body: jsonl
+        });
+
+        const resultText = await response.text();
+        const results = resultText.split('\n').filter(l => l).map(l => JSON.parse(l));
+        const failures = results.filter(r => !r.success);
+
+        if (i === 0) {
+          console.log('Import result sample:', JSON.stringify(results.slice(0, 2)));
+          if (failures.length > 0) {
+            console.log('Import failures:', JSON.stringify(failures.slice(0, 3)));
+          }
+        }
+
+        indexed += batch.length - failures.length;
         console.log(`Progress: ${indexed}/${this.fragments.length} (${Math.round(indexed/this.fragments.length*100)}%)`);
       } catch (e) {
         console.error('Batch import error:', e);
-        // Try individual upserts for failed batch
+        // Fallback to individual upserts via Typesense client
         for (const doc of batch) {
           try {
             await coll.upsert(doc);
@@ -575,8 +651,8 @@ class MyGovScraper {
         states: Array.from(acc.states),
         provider: Array.from(acc.provider),
         governance: Array.from(acc.governance),
-        stage: Array.from(acc.stage),
-        stage_variant: Array.from(acc.stage_variant),
+        stage: Array.from(acc.stage)[0] || '',
+        stage_variant: Array.from(acc.stage_variant)[0] || '',
         content_text: acc.content_text,
         keywords: Array.from(acc.keywords),
         embedding: emb,
@@ -611,10 +687,10 @@ class MyGovScraper {
         enrichedDocs.push({
           ...baseDocs[i],
           life_events: [],
-          primary_life_event: null,
+          primary_life_event: '',
           eligibility_statuses: [],
-          stage: null,
-          stage_variant: null
+          stage: '',
+          stage_variant: ''
         });
       }
     }
@@ -647,23 +723,38 @@ class MyGovScraper {
 
   async pruneStaleDocs() {
     console.log('Pruning stale documents...');
+
+    // Only prune documents from the current target host (not all hosts)
+    if (!this.targetHost) {
+      console.warn('No target host set - skipping prune to avoid deleting other hosts\' data');
+      return;
+    }
+
+    // For fragments, filter by URL containing the host
+    // Typesense doesn't support LIKE queries, so we use the url field with exact host matching
+    const hostPattern = this.targetHost.replace(/\./g, '\\.'); // Escape dots for safety
+
     try {
+      // Prune fragments: match by page_url containing the host
       const result = await this.typesense
         .collections('content_fragments')
         .documents()
-        .delete({ filter_by: `crawl_version:<${CRAWL_VERSION}` });
-      console.log(`Pruned ${result.num_deleted} stale documents`);
+        .delete({ filter_by: `crawl_version:<${CRAWL_VERSION} && page_url:*${this.targetHost}*` });
+      console.log(`Pruned ${result.num_deleted} stale fragments for ${this.targetHost}`);
     } catch (e) {
-      console.error('Error pruning stale docs:', e);
+      // Typesense may not support wildcard in filter - try alternative approach
+      console.warn('Wildcard filter not supported, skipping fragment prune:', e.message);
     }
+
     try {
+      // Prune pages: filter by host field (exact match)
       const result = await this.typesense
         .collections('content_pages')
         .documents()
-        .delete({ filter_by: `crawl_version:<${CRAWL_VERSION}` });
-      console.log(`Pruned ${result.num_deleted} stale pages`);
+        .delete({ filter_by: `crawl_version:<${CRAWL_VERSION} && host:=${this.targetHost}` });
+      console.log(`Pruned ${result.num_deleted} stale pages for ${this.targetHost}`);
     } catch (e) {
-      console.error('Error pruning stale page docs:', e.message);
+      console.error('Error pruning stale pages:', e.message);
     }
   }
 }

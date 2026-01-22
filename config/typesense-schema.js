@@ -100,7 +100,9 @@ module.exports = {
       { name: 'component_type', type: 'string', facet: true },
       { name: 'has_form', type: 'bool', facet: true },
       { name: 'has_checklist', type: 'bool', facet: true },
-      { name: 'reading_level', type: 'int32', optional: true },
+      { name: 'reading_level', type: 'int32', optional: true, facet: true },
+      // Content hash for duplicate detection (SHA256 of normalized content_text)
+      { name: 'content_hash', type: 'string', optional: true, facet: true },
 
       // presentation (not faceted / not indexed)
       { name: 'classes', type: 'string[]', index: false, optional: true },

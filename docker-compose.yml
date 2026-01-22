@@ -89,6 +89,69 @@ services:
     profiles:
       - scrapers
 
+  scraper-centrelink:
+    build: ./scraper
+    depends_on:
+      - typesense
+    environment:
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-xyz123abc}
+      # centrelink.gov.au has orphan content - no homepage, start from A-Z listing
+      - TARGET_URL=https://centrelink.gov.au/custsite_a2z/a2z.html
+      - MAX_DEPTH=${MAX_DEPTH:-4}
+      - MAX_LINKS_PER_PAGE=${MAX_LINKS_PER_PAGE:-50}
+      - CONCURRENCY=${CONCURRENCY:-3}
+    volumes:
+      - ./scraper:/app
+      - /app/node_modules
+      - ./config:/config
+      - ./data:/data
+    profiles:
+      - analysis-only
+
+  scraper-operational:
+    build: ./scraper
+    depends_on:
+      - typesense
+    environment:
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-xyz123abc}
+      # Operational Blueprint - internal staff guidance exposed publicly
+      - TARGET_URL=https://operational.servicesaustralia.gov.au/public/Pages/SiteMap/siteMap.html
+      - MAX_DEPTH=${MAX_DEPTH:-4}
+      - MAX_LINKS_PER_PAGE=500
+      - CONCURRENCY=${CONCURRENCY:-5}
+    volumes:
+      - ./scraper:/app
+      - /app/node_modules
+      - ./config:/config
+      - ./data:/data
+    profiles:
+      - analysis-only
+
+  scraper-medicare:
+    build: ./scraper
+    depends_on:
+      - typesense
+    environment:
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-xyz123abc}
+      # medicare.gov.au - check for orphan content similar to centrelink
+      - TARGET_URL=https://medicare.gov.au
+      - MAX_DEPTH=${MAX_DEPTH:-4}
+      - MAX_LINKS_PER_PAGE=${MAX_LINKS_PER_PAGE:-50}
+      - CONCURRENCY=${CONCURRENCY:-3}
+    volumes:
+      - ./scraper:/app
+      - /app/node_modules
+      - ./config:/config
+      - ./data:/data
+    profiles:
+      - analysis-only
+
   # Unified scraper that can crawl multiple domains in one run
   scraper:
     build: ./scraper

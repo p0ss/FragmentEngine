@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEO Analysis - Content Library</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1419;
+            min-height: 100vh;
+            color: #e7e9ea;
+        }
+        .app { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: #16181c;
+            border-right: 1px solid #2f3336;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+        .logo .material-icons { color: #f7b733; }
+
+        /* Config Section */
+        .config-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #2f3336;
+        }
+        .config-label {
+            font-size: 0.7rem;
+            color: #71767b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .config-select, .config-input {
+            width: 100%;
+            background: #1d1f23;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            padding: 0.625rem 0.75rem;
+            color: #e7e9ea;
+            font-size: 0.8rem;
+            margin-bottom: 0.75rem;
+        }
+        .config-select:focus, .config-input:focus { outline: none; border-color: #1d9bf0; }
+
+        /* Fragment Preview */
+        .fragment-preview {
+            background: #1d1f23;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .fragment-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        .fragment-text {
+            font-size: 0.75rem;
+            color: #71767b;
+            max-height: 100px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        .fragment-meta {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .fragment-tag {
+            font-size: 0.65rem;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            background: rgba(29,155,240,0.15);
+            color: #1d9bf0;
+        }
+
+        /* Run Controls */
+        .run-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #1d9bf0;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #1a8cd8; }
+        .btn-primary:disabled { background: #2f3336; color: #71767b; cursor: not-allowed; }
+        .btn-secondary {
+            background: #2f3336;
+            color: #e7e9ea;
+        }
+        .btn-secondary:hover { background: #3f4346; }
+        .btn .material-icons { font-size: 1rem; }
+
+        /* Aggregate Stats */
+        .stats-card {
+            background: #1d1f23;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.375rem;
+            font-size: 0.75rem;
+        }
+        .stats-row:last-child { margin-bottom: 0; }
+        .stats-label { color: #71767b; }
+        .stats-value { color: #fff; font-weight: 600; }
+        .stats-value.good { color: #00ba7c; }
+        .stats-value.warning { color: #f7b733; }
+        .stats-value.poor { color: #f4212e; }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            margin-left: 320px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: #16181c;
+            border-bottom: 1px solid #2f3336;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 { font-size: 1.25rem; font-weight: 600; }
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        /* Content */
+        .content { flex: 1; padding: 1.5rem 2rem; overflow-y: auto; }
+
+        /* Results Table */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #16181c;
+            border: 1px solid #2f3336;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .results-table th, .results-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #2f3336;
+        }
+        .results-table th {
+            background: #1d1f23;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #71767b;
+            cursor: pointer;
+            user-select: none;
+        }
+        .results-table th:hover { color: #1d9bf0; }
+        .results-table th .sort-icon { font-size: 0.8rem; vertical-align: middle; }
+        .results-table td { font-size: 0.8rem; }
+        .results-table tr:hover { background: #1d1f23; }
+        .results-table tr:last-child td { border-bottom: none; }
+
+        /* Rating Badge */
+        .rating-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .rating-badge.excellent { background: rgba(0,186,124,0.15); color: #00ba7c; }
+        .rating-badge.good { background: rgba(29,155,240,0.15); color: #1d9bf0; }
+        .rating-badge.fair { background: rgba(247,183,51,0.15); color: #f7b733; }
+        .rating-badge.poor { background: rgba(244,33,46,0.15); color: #f4212e; }
+
+        /* Failure Mode */
+        .failure-mode {
+            font-size: 0.7rem;
+            color: #f4212e;
+            background: rgba(244,33,46,0.1);
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+        }
+
+        /* Similarity Bar */
+        .similarity-bar {
+            width: 100px;
+            height: 6px;
+            background: #2f3336;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .similarity-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .similarity-fill.high { background: #00ba7c; }
+        .similarity-fill.medium { background: #f7b733; }
+        .similarity-fill.low { background: #f4212e; }
+
+        /* Expandable Row */
+        .expandable-content {
+            background: #1a1d21;
+            padding: 1rem;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+        .expand-section {
+            margin-bottom: 1rem;
+        }
+        .expand-section:last-child { margin-bottom: 0; }
+        .expand-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #71767b;
+            margin-bottom: 0.5rem;
+        }
+        .expand-text {
+            color: #b0b3b8;
+            white-space: pre-wrap;
+        }
+
+        /* Loading */
+        .loading-row td {
+            text-align: center;
+            padding: 2rem;
+            color: #71767b;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #2f3336;
+            border-top-color: #1d9bf0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #71767b;
+        }
+        .empty-state .material-icons { font-size: 3rem; opacity: 0.5; margin-bottom: 1rem; }
+
+        /* Progress */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2f3336;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #1d9bf0;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            font-size: 0.7rem;
+            color: #71767b;
+            text-align: center;
+        }
+
+        /* Back link */
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: #71767b;
+            text-decoration: none;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+        .back-link:hover { color: #1d9bf0; }
+        .back-link .material-icons { font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const API_BASE = '';
+        const TYPESENSE_BASE = '/typesense';
+        const TYPESENSE_KEY = 'your-secure-api-key-here';
+        const LLM_API = '/api/llm';
+
+        // Failure modes for judge
+        const FAILURE_MODES = [
+            'accurate',           // Response matches source
+            'hallucination',      // Made up facts not in source
+            'incomplete',         // Missing key information
+            'outdated',           // Information may be stale
+            'wrong_context',      // Answered about wrong topic
+            'overly_generic',     // Too vague, lacks specifics
+            'conflation',         // Mixed up different programs/services
+            'misattribution'      // Attributed to wrong source
+        ];
+
+        // Typesense search
+        async function tsSearch(collection, params) {
+            const query = new URLSearchParams(params).toString();
+            const res = await fetch(`${TYPESENSE_BASE}/collections/${encodeURIComponent(collection)}/documents/search?${query}`, {
+                headers: { 'X-TYPESENSE-API-KEY': TYPESENSE_KEY }
+            });
+            if (!res.ok) throw new Error(`Typesense error: ${res.status}`);
+            return res.json();
+        }
+
+        // Call LLM API
+        async function callLLM(prompt, model, maxTokens = 1000) {
+            const res = await fetch(`${LLM_API}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, model, max_tokens: maxTokens })
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`LLM error: ${res.status} - ${errText}`);
+            }
+            const data = await res.json();
+            return data.content || data.message?.content || data.response || '';
+        }
+
+        // Calculate Flesch-Kincaid reading level
+        function calculateReadingLevel(text) {
+            if (!text || text.length < 10) return 0;
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const syllables = words.reduce((sum, word) => sum + countSyllables(word), 0);
+
+            if (sentences.length === 0 || words.length === 0) return 0;
+
+            const avgWordsPerSentence = words.length / sentences.length;
+            const avgSyllablesPerWord = syllables / words.length;
+
+            // Flesch-Kincaid Grade Level
+            const grade = 0.39 * avgWordsPerSentence + 11.8 * avgSyllablesPerWord - 15.59;
+            return Math.max(1, Math.min(18, Math.round(grade)));
+        }
+
+        function countSyllables(word) {
+            word = word.toLowerCase().replace(/[^a-z]/g, '');
+            if (word.length <= 3) return 1;
+            word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+            word = word.replace(/^y/, '');
+            const matches = word.match(/[aeiouy]{1,2}/g);
+            return matches ? matches.length : 1;
+        }
+
+        // Simple cosine similarity for text (bag of words)
+        function textSimilarity(text1, text2) {
+            if (!text1 || !text2) return 0;
+            const words1 = new Set(text1.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+            const words2 = new Set(text2.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+            const intersection = [...words1].filter(w => words2.has(w));
+            const union = new Set([...words1, ...words2]);
+            return union.size > 0 ? intersection.length / union.size : 0;
+        }
+
+        function App() {
+            // URL params for fragment selection
+            const [fragmentId, setFragmentId] = useState(null);
+            const [fragment, setFragment] = useState(null);
+
+            // Config
+            const [model, setModel] = useState('bedrock:anthropic.claude-3-sonnet-20240229-v1:0');
+            const [judgeModel, setJudgeModel] = useState('bedrock:anthropic.claude-3-sonnet-20240229-v1:0');
+            const [sampleCount, setSampleCount] = useState(10);
+            const [availableModels, setAvailableModels] = useState([]);
+            const [showPromptEditor, setShowPromptEditor] = useState(false);
+
+            // Editable prompts
+            const [subjectPromptTemplate, setSubjectPromptTemplate] = useState('{{title}}');
+            const [judgePromptTemplate, setJudgePromptTemplate] = useState(`You are evaluating an AI response for accuracy against authoritative source content.
+
+SOURCE CONTENT (Ground Truth):
+Title: {{title}}
+Body: {{body}}
+
+AI RESPONSE TO EVALUATE:
+{{response}}
+
+Evaluate how well the AI response matches the source content. Consider:
+1. Factual accuracy - does the response contain correct information?
+2. Completeness - does it cover the key points?
+3. Hallucinations - did it make up information not in the source?
+4. Relevance - is it answering about the right topic?
+
+Respond with ONLY a JSON object (no other text):
+{
+  "rating": <number 1-5, where 5 is excellent match>,
+  "failure_mode": "<one of: accurate, hallucination, incomplete, outdated, wrong_context, overly_generic, conflation, misattribution>",
+  "explanation": "<brief 1-2 sentence explanation>"
+}`);
+            const [promptVersion, setPromptVersion] = useState(1);
+
+            // State
+            const [results, setResults] = useState([]);
+            const [running, setRunning] = useState(false);
+            const [progress, setProgress] = useState({ current: 0, total: 0 });
+            const [expandedRow, setExpandedRow] = useState(null);
+            const [sortField, setSortField] = useState('rating');
+            const [sortDir, setSortDir] = useState('desc');
+
+            // Sample fragments for batch mode
+            const [sampleFragments, setSampleFragments] = useState([]);
+
+            // Load from URL params
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const fid = params.get('fragment');
+                if (fid) {
+                    setFragmentId(fid);
+                    loadFragment(fid);
+                }
+                loadModels();
+                loadSavedResults();
+            }, []);
+
+            async function loadFragment(id) {
+                try {
+                    const data = await tsSearch('content_fragments', {
+                        q: '*',
+                        query_by: 'title',
+                        filter_by: `id:=${id}`,
+                        per_page: 1
+                    });
+                    if (data.hits?.length > 0) {
+                        setFragment(data.hits[0].document);
+                    }
+                } catch (err) {
+                    console.error('Error loading fragment:', err);
+                }
+            }
+
+            async function loadModels() {
+                try {
+                    const res = await fetch(`${LLM_API}/models`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setAvailableModels(data.models || []);
+                    }
+                } catch (err) {
+                    console.warn('Could not load models:', err);
+                    // Defaults
+                    setAvailableModels([
+                        { value: 'bedrock:anthropic.claude-3-sonnet-20240229-v1:0', label: 'Claude 3 Sonnet' },
+                        { value: 'bedrock:anthropic.claude-3-haiku-20240307-v1:0', label: 'Claude 3 Haiku' },
+                        { value: 'bedrock:mistral.mistral-large-2402-v1:0', label: 'Mistral Large' }
+                    ]);
+                }
+            }
+
+            function loadSavedResults() {
+                try {
+                    const saved = localStorage.getItem('aeo-results');
+                    if (saved) {
+                        setResults(JSON.parse(saved));
+                    }
+                } catch (err) {
+                    console.warn('Could not load saved results:', err);
+                }
+            }
+
+            function saveResults(newResults) {
+                try {
+                    localStorage.setItem('aeo-results', JSON.stringify(newResults));
+                } catch (err) {
+                    console.warn('Could not save results:', err);
+                }
+            }
+
+            async function loadSampleFragments() {
+                try {
+                    const data = await tsSearch('content_fragments', {
+                        q: '*',
+                        query_by: 'title,content_text',
+                        include_fields: 'id,title,content_text,reading_level,host,url',
+                        per_page: sampleCount,
+                        sort_by: '_rand:asc'  // Random sample
+                    });
+                    return data.hits?.map(h => h.document) || [];
+                } catch (err) {
+                    console.error('Error loading samples:', err);
+                    return [];
+                }
+            }
+
+            async function findSimilarFragments(responseText) {
+                try {
+                    // Search for fragments similar to the response
+                    const data = await tsSearch('content_fragments', {
+                        q: responseText.substring(0, 200),
+                        query_by: 'content_text,title',
+                        include_fields: 'id,title,content_text,reading_level',
+                        per_page: 5
+                    });
+                    return data.hits?.map(h => ({
+                        id: h.document.id,
+                        title: h.document.title,
+                        similarity: textSimilarity(responseText, h.document.content_text || '')
+                    })) || [];
+                } catch (err) {
+                    console.error('Error finding similar:', err);
+                    return [];
+                }
+            }
+
+            async function judgeResponse(fragmentTitle, fragmentBody, response) {
+                // Build prompt from template
+                const prompt = judgePromptTemplate
+                    .replace(/\{\{title\}\}/g, fragmentTitle)
+                    .replace(/\{\{body\}\}/g, fragmentBody)
+                    .replace(/\{\{response\}\}/g, response);
+
+                try {
+                    const judgeResp = await callLLM(prompt, judgeModel, 500);
+
+                    // Parse JSON from response
+                    const jsonMatch = judgeResp.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        return JSON.parse(jsonMatch[0]);
+                    }
+                    return { rating: 3, failure_mode: 'unknown', explanation: 'Could not parse judge response' };
+                } catch (err) {
+                    console.error('Judge error:', err);
+                    return { rating: 0, failure_mode: 'error', explanation: err.message };
+                }
+            }
+
+            async function runSingleEval(frag) {
+                const startTime = Date.now();
+
+                // Step 1: Build prompt from template
+                const userPrompt = subjectPromptTemplate
+                    .replace(/\{\{title\}\}/g, frag.title)
+                    .replace(/\{\{body\}\}/g, frag.content_text || '')
+                    .replace(/\{\{host\}\}/g, frag.host || '');
+
+                let response = '';
+                try {
+                    response = await callLLM(userPrompt, model, 800);
+                } catch (err) {
+                    return {
+                        fragmentId: frag.id,
+                        fragmentTitle: frag.title,
+                        fragmentBody: frag.content_text,
+                        prompt: userPrompt,
+                        response: '',
+                        error: err.message,
+                        rating: 0,
+                        failureMode: 'error',
+                        explanation: err.message,
+                        responseReadingLevel: 0,
+                        sourceReadingLevel: frag.reading_level || 0,
+                        similarity: 0,
+                        isTopMatch: false,
+                        similarFragments: [],
+                        duration: Date.now() - startTime,
+                        subjectModel: model,
+                        judgeModel: judgeModel,
+                        promptVersion: promptVersion,
+                        subjectPromptTemplate,
+                        judgePromptTemplate,
+                        timestamp: new Date().toISOString()
+                    };
+                }
+
+                // Step 2: Calculate reading level
+                const responseReadingLevel = calculateReadingLevel(response);
+
+                // Step 3: Calculate direct similarity
+                const directSimilarity = textSimilarity(response, frag.content_text || '');
+
+                // Step 4: Find similar fragments
+                const similarFragments = await findSimilarFragments(response);
+                const isTopMatch = similarFragments.length > 0 && similarFragments[0].id === frag.id;
+
+                // Step 5: Judge the response
+                const judgment = await judgeResponse(frag.title, frag.content_text || '', response);
+
+                return {
+                    fragmentId: frag.id,
+                    fragmentTitle: frag.title,
+                    fragmentBody: frag.content_text,
+                    fragmentHost: frag.host,
+                    prompt: userPrompt,
+                    response,
+                    rating: judgment.rating,
+                    failureMode: judgment.failure_mode,
+                    explanation: judgment.explanation,
+                    responseReadingLevel,
+                    sourceReadingLevel: frag.reading_level || calculateReadingLevel(frag.content_text || ''),
+                    similarity: directSimilarity,
+                    isTopMatch,
+                    similarFragments,
+                    duration: Date.now() - startTime,
+                    subjectModel: model,
+                    judgeModel: judgeModel,
+                    promptVersion: promptVersion,
+                    subjectPromptTemplate,
+                    judgePromptTemplate,
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+            async function runEvaluation() {
+                setRunning(true);
+                setProgress({ current: 0, total: sampleCount });
+
+                let fragments = [];
+                if (fragment) {
+                    // Single fragment mode
+                    fragments = [fragment];
+                    setProgress({ current: 0, total: 1 });
+                } else {
+                    // Batch mode - load random samples
+                    fragments = await loadSampleFragments();
+                    setProgress({ current: 0, total: fragments.length });
+                }
+
+                const newResults = [];
+
+                for (let i = 0; i < fragments.length; i++) {
+                    setProgress({ current: i + 1, total: fragments.length });
+
+                    const result = await runSingleEval(fragments[i]);
+                    newResults.push(result);
+                    setResults([...newResults]);
+
+                    // Save incrementally
+                    saveResults([...results, ...newResults]);
+
+                    // Small delay to avoid rate limits
+                    await new Promise(r => setTimeout(r, 500));
+                }
+
+                saveResults([...results, ...newResults]);
+                setRunning(false);
+            }
+
+            function clearResults() {
+                setResults([]);
+                localStorage.removeItem('aeo-results');
+            }
+
+            function exportResults() {
+                const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `aeo-results-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            // Sorting
+            const sortedResults = useMemo(() => {
+                const sorted = [...results];
+                sorted.sort((a, b) => {
+                    let aVal = a[sortField];
+                    let bVal = b[sortField];
+                    if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+                    if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+                    if (sortDir === 'asc') return aVal > bVal ? 1 : -1;
+                    return aVal < bVal ? 1 : -1;
+                });
+                return sorted;
+            }, [results, sortField, sortDir]);
+
+            function toggleSort(field) {
+                if (sortField === field) {
+                    setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setSortField(field);
+                    setSortDir('desc');
+                }
+            }
+
+            // Aggregate stats
+            const stats = useMemo(() => {
+                if (results.length === 0) return null;
+
+                const ratings = results.filter(r => r.rating > 0).map(r => r.rating);
+                const avgRating = ratings.length > 0
+                    ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2)
+                    : 0;
+
+                const topMatches = results.filter(r => r.isTopMatch).length;
+                const topMatchRate = ((topMatches / results.length) * 100).toFixed(1);
+
+                const failureCounts = {};
+                results.forEach(r => {
+                    failureCounts[r.failureMode] = (failureCounts[r.failureMode] || 0) + 1;
+                });
+                const topFailure = Object.entries(failureCounts)
+                    .sort((a, b) => b[1] - a[1])[0];
+
+                const avgResponseRL = results.length > 0
+                    ? (results.reduce((s, r) => s + (r.responseReadingLevel || 0), 0) / results.length).toFixed(1)
+                    : 0;
+
+                return {
+                    total: results.length,
+                    avgRating,
+                    topMatchRate,
+                    topFailure: topFailure ? `${topFailure[0]} (${topFailure[1]})` : 'N/A',
+                    avgResponseRL,
+                    accurateCount: failureCounts['accurate'] || 0
+                };
+            }, [results]);
+
+            function getRatingClass(rating) {
+                if (rating >= 4) return 'excellent';
+                if (rating >= 3) return 'good';
+                if (rating >= 2) return 'fair';
+                return 'poor';
+            }
+
+            function getSimilarityClass(sim) {
+                if (sim >= 0.5) return 'high';
+                if (sim >= 0.25) return 'medium';
+                return 'low';
+            }
+
+            return (
+                <div className="app">
+                    <aside className="sidebar">
+                        <a href="dashboard-unified.html" className="back-link">
+                            <span className="material-icons">arrow_back</span>
+                            Back to Dashboard
+                        </a>
+
+                        <div className="logo">
+                            <span className="material-icons">psychology</span>
+                            AEO Analysis
+                        </div>
+
+                        <div className="config-section">
+                            <div className="config-label">Test Model</div>
+                            <select
+                                className="config-select"
+                                value={model}
+                                onChange={e => setModel(e.target.value)}
+                            >
+                                {availableModels.map(m => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
+                            </select>
+
+                            <div className="config-label">Judge Model</div>
+                            <select
+                                className="config-select"
+                                value={judgeModel}
+                                onChange={e => setJudgeModel(e.target.value)}
+                            >
+                                {availableModels.map(m => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
+                            </select>
+
+                            <div className="config-label">Sample Count (batch mode)</div>
+                            <input
+                                type="number"
+                                className="config-input"
+                                value={sampleCount}
+                                onChange={e => setSampleCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 10)))}
+                                min="1"
+                                max="100"
+                            />
+
+                            <div className="config-label">Prompt Version</div>
+                            <input
+                                type="number"
+                                className="config-input"
+                                value={promptVersion}
+                                onChange={e => setPromptVersion(parseInt(e.target.value) || 1)}
+                                min="1"
+                            />
+
+                            <button
+                                className="btn btn-secondary"
+                                style={{width: '100%', marginTop: '0.5rem'}}
+                                onClick={() => setShowPromptEditor(!showPromptEditor)}
+                            >
+                                <span className="material-icons">{showPromptEditor ? 'expand_less' : 'edit'}</span>
+                                {showPromptEditor ? 'Hide Prompts' : 'Edit Prompts'}
+                            </button>
+                        </div>
+
+                        {showPromptEditor && (
+                            <div className="config-section">
+                                <div className="config-label">Subject Prompt Template</div>
+                                <div style={{fontSize: '0.65rem', color: '#71767b', marginBottom: '0.25rem'}}>
+                                    Variables: {'{{title}}'}, {'{{body}}'}, {'{{host}}'}
+                                </div>
+                                <textarea
+                                    className="config-input"
+                                    style={{minHeight: '60px', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.75rem'}}
+                                    value={subjectPromptTemplate}
+                                    onChange={e => setSubjectPromptTemplate(e.target.value)}
+                                />
+
+                                <div className="config-label" style={{marginTop: '0.75rem'}}>Judge Prompt Template</div>
+                                <div style={{fontSize: '0.65rem', color: '#71767b', marginBottom: '0.25rem'}}>
+                                    Variables: {'{{title}}'}, {'{{body}}'}, {'{{response}}'}
+                                </div>
+                                <textarea
+                                    className="config-input"
+                                    style={{minHeight: '200px', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.75rem'}}
+                                    value={judgePromptTemplate}
+                                    onChange={e => setJudgePromptTemplate(e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        {fragment && (
+                            <div className="config-section">
+                                <div className="config-label">Selected Fragment</div>
+                                <div className="fragment-preview">
+                                    <div className="fragment-title">{fragment.title}</div>
+                                    <div className="fragment-text">
+                                        {(fragment.content_text || '').substring(0, 200)}...
+                                    </div>
+                                    <div className="fragment-meta">
+                                        <span className="fragment-tag">{fragment.host}</span>
+                                        {fragment.reading_level && (
+                                            <span className="fragment-tag">Grade {fragment.reading_level}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="run-controls">
+                            <button
+                                className="btn btn-primary"
+                                onClick={runEvaluation}
+                                disabled={running}
+                            >
+                                <span className="material-icons">play_arrow</span>
+                                {running ? 'Running...' : (fragment ? 'Run Single' : 'Run Batch')}
+                            </button>
+                        </div>
+
+                        {running && (
+                            <div style={{marginBottom: '1rem'}}>
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{width: `${(progress.current / progress.total) * 100}%`}}
+                                    />
+                                </div>
+                                <div className="progress-text">
+                                    {progress.current} / {progress.total} samples
+                                </div>
+                            </div>
+                        )}
+
+                        {stats && (
+                            <>
+                                <div className="config-label">Aggregate Stats</div>
+                                <div className="stats-card">
+                                    <div className="stats-row">
+                                        <span className="stats-label">Total Samples</span>
+                                        <span className="stats-value">{stats.total}</span>
+                                    </div>
+                                    <div className="stats-row">
+                                        <span className="stats-label">Avg Rating</span>
+                                        <span className={`stats-value ${stats.avgRating >= 4 ? 'good' : stats.avgRating >= 2.5 ? 'warning' : 'poor'}`}>
+                                            {stats.avgRating} / 5
+                                        </span>
+                                    </div>
+                                    <div className="stats-row">
+                                        <span className="stats-label">Top Match Rate</span>
+                                        <span className={`stats-value ${stats.topMatchRate >= 50 ? 'good' : stats.topMatchRate >= 25 ? 'warning' : 'poor'}`}>
+                                            {stats.topMatchRate}%
+                                        </span>
+                                    </div>
+                                    <div className="stats-row">
+                                        <span className="stats-label">Accurate Responses</span>
+                                        <span className="stats-value good">{stats.accurateCount}</span>
+                                    </div>
+                                    <div className="stats-row">
+                                        <span className="stats-label">Top Failure Mode</span>
+                                        <span className="stats-value">{stats.topFailure}</span>
+                                    </div>
+                                    <div className="stats-row">
+                                        <span className="stats-label">Avg Response Grade</span>
+                                        <span className="stats-value">{stats.avgResponseRL}</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="run-controls" style={{marginTop: 'auto'}}>
+                            <button className="btn btn-secondary" onClick={exportResults} disabled={results.length === 0}>
+                                <span className="material-icons">download</span>
+                                Export
+                            </button>
+                            <button className="btn btn-secondary" onClick={clearResults} disabled={results.length === 0}>
+                                <span className="material-icons">delete</span>
+                                Clear
+                            </button>
+                        </div>
+                    </aside>
+
+                    <main className="main">
+                        <header className="header">
+                            <h1>Evaluation Results</h1>
+                            <div className="header-actions">
+                                <span style={{fontSize: '0.8rem', color: '#71767b'}}>
+                                    Model: {model.split(':').pop()}
+                                </span>
+                            </div>
+                        </header>
+
+                        <div className="content">
+                            {results.length === 0 ? (
+                                <div className="empty-state">
+                                    <span className="material-icons">science</span>
+                                    <p>No results yet. Select a fragment from the dashboard or run a batch evaluation.</p>
+                                    <p style={{fontSize: '0.8rem', marginTop: '0.5rem'}}>
+                                        Add <code>?fragment=ID</code> to the URL to test a specific fragment.
+                                    </p>
+                                </div>
+                            ) : (
+                                <table className="results-table">
+                                    <thead>
+                                        <tr>
+                                            <th onClick={() => toggleSort('fragmentTitle')}>
+                                                Fragment {sortField === 'fragmentTitle' && <span className="sort-icon">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                                            </th>
+                                            <th onClick={() => toggleSort('rating')}>
+                                                Rating {sortField === 'rating' && <span className="sort-icon">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                                            </th>
+                                            <th onClick={() => toggleSort('failureMode')}>
+                                                Status {sortField === 'failureMode' && <span className="sort-icon">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                                            </th>
+                                            <th onClick={() => toggleSort('similarity')}>
+                                                Similarity {sortField === 'similarity' && <span className="sort-icon">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                                            </th>
+                                            <th onClick={() => toggleSort('isTopMatch')}>
+                                                Top Match {sortField === 'isTopMatch' && <span className="sort-icon">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                                            </th>
+                                            <th onClick={() => toggleSort('responseReadingLevel')}>
+                                                Response RL {sortField === 'responseReadingLevel' && <span className="sort-icon">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                                            </th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortedResults.map((result, idx) => (
+                                            <React.Fragment key={idx}>
+                                                <tr onClick={() => setExpandedRow(expandedRow === idx ? null : idx)} style={{cursor: 'pointer'}}>
+                                                    <td>
+                                                        <div style={{maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                                                            {result.fragmentTitle}
+                                                        </div>
+                                                        <div style={{fontSize: '0.7rem', color: '#71767b'}}>{result.fragmentHost}</div>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`rating-badge ${getRatingClass(result.rating)}`}>
+                                                            {result.rating}/5
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {result.failureMode === 'accurate' ? (
+                                                            <span style={{color: '#00ba7c', fontSize: '0.75rem'}}>Accurate</span>
+                                                        ) : (
+                                                            <span className="failure-mode">{result.failureMode}</span>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <div className="similarity-bar">
+                                                            <div
+                                                                className={`similarity-fill ${getSimilarityClass(result.similarity)}`}
+                                                                style={{width: `${result.similarity * 100}%`}}
+                                                            />
+                                                        </div>
+                                                        <span style={{fontSize: '0.7rem', color: '#71767b'}}>
+                                                            {(result.similarity * 100).toFixed(0)}%
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {result.isTopMatch ? (
+                                                            <span className="material-icons" style={{color: '#00ba7c', fontSize: '1rem'}}>check_circle</span>
+                                                        ) : (
+                                                            <span className="material-icons" style={{color: '#71767b', fontSize: '1rem'}}>cancel</span>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <span style={{
+                                                            color: result.responseReadingLevel <= 8 ? '#00ba7c' :
+                                                                   result.responseReadingLevel <= 10 ? '#f7b733' : '#f4212e'
+                                                        }}>
+                                                            Grade {result.responseReadingLevel}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button
+                                                            className="btn btn-secondary"
+                                                            style={{padding: '0.25rem 0.5rem', fontSize: '0.7rem'}}
+                                                            onClick={(e) => { e.stopPropagation(); setExpandedRow(expandedRow === idx ? null : idx); }}
+                                                        >
+                                                            {expandedRow === idx ? 'Hide' : 'Details'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {expandedRow === idx && (
+                                                    <tr>
+                                                        <td colSpan="7" style={{padding: 0}}>
+                                                            <div className="expandable-content">
+                                                                <div className="expand-section" style={{display: 'flex', gap: '2rem', flexWrap: 'wrap', background: '#16181c', padding: '0.5rem 0.75rem', borderRadius: '0.25rem', marginBottom: '0.75rem'}}>
+                                                                    <div>
+                                                                        <span style={{fontSize: '0.65rem', color: '#71767b'}}>Subject Model:</span>
+                                                                        <div style={{fontSize: '0.75rem'}}>{result.subjectModel?.split(':').pop() || result.model?.split(':').pop() || 'N/A'}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span style={{fontSize: '0.65rem', color: '#71767b'}}>Judge Model:</span>
+                                                                        <div style={{fontSize: '0.75rem'}}>{result.judgeModel?.split(':').pop() || 'N/A'}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span style={{fontSize: '0.65rem', color: '#71767b'}}>Prompt Version:</span>
+                                                                        <div style={{fontSize: '0.75rem'}}>v{result.promptVersion || 1}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span style={{fontSize: '0.65rem', color: '#71767b'}}>Duration:</span>
+                                                                        <div style={{fontSize: '0.75rem'}}>{(result.duration / 1000).toFixed(1)}s</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="expand-section">
+                                                                    <div className="expand-label">Subject Prompt</div>
+                                                                    <div className="expand-text" style={{fontFamily: 'monospace', background: '#16181c', padding: '0.5rem', borderRadius: '0.25rem'}}>{result.prompt}</div>
+                                                                </div>
+                                                                <div className="expand-section">
+                                                                    <div className="expand-label">AI Response</div>
+                                                                    <div className="expand-text">{result.response}</div>
+                                                                </div>
+                                                                <div className="expand-section">
+                                                                    <div className="expand-label">Source Content (Ground Truth)</div>
+                                                                    <div className="expand-text" style={{maxHeight: '150px', overflow: 'auto'}}>
+                                                                        {result.fragmentBody}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="expand-section">
+                                                                    <div className="expand-label">Judge Explanation</div>
+                                                                    <div className="expand-text">{result.explanation}</div>
+                                                                </div>
+                                                                {result.similarFragments?.length > 0 && (
+                                                                    <div className="expand-section">
+                                                                        <div className="expand-label">Most Similar Fragments to Response</div>
+                                                                        <div style={{fontSize: '0.75rem'}}>
+                                                                            {result.similarFragments.map((sf, i) => (
+                                                                                <div key={i} style={{marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                                                                                    <span style={{color: i === 0 && result.isTopMatch ? '#00ba7c' : '#b0b3b8'}}>
+                                                                                        {i + 1}. {sf.title} ({(sf.similarity * 100).toFixed(0)}%)
+                                                                                    </span>
+                                                                                    <a
+                                                                                        href={`dashboard-content.html?page_url=${encodeURIComponent(sf.page_url || sf.url?.split('#')[0] || '')}`}
+                                                                                        target="_blank"
+                                                                                        style={{fontSize: '0.65rem', color: '#1d9bf0', textDecoration: 'none'}}
+                                                                                        onClick={e => e.stopPropagation()}
+                                                                                    >
+                                                                                        View
+                                                                                    </a>
+                                                                                    <a
+                                                                                        href={`aeo-analysis.html?fragment=${encodeURIComponent(sf.id)}`}
+                                                                                        style={{fontSize: '0.65rem', color: '#f7b733', textDecoration: 'none'}}
+                                                                                        onClick={e => e.stopPropagation()}
+                                                                                    >
+                                                                                        Eval
+                                                                                    </a>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

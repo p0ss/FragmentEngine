@@ -79,6 +79,7 @@ async function extractFragment({
     has_form: $container.find('form').length > 0,
     has_checklist: $container.find('ol, ul.checklist').length > 0,
     reading_level: calculateReadingLevel(contentText),
+    content_hash: calculateContentHash(contentText),
     last_modified: new Date().getTime(),
     
     // Presentation
@@ -195,6 +196,27 @@ function calculateReadingLevel(text) {
                 11.8 * (syllableCount / words.length) - 15.59;
   
   return Math.max(1, Math.min(12, Math.round(score)));
+}
+
+function calculateContentHash(text) {
+  // Safety check for null/undefined/empty text
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return null;
+  }
+
+  // Normalize text: lowercase, collapse whitespace, remove punctuation
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (normalized.length === 0) return null;
+
+  // SHA256 hash of normalized content for duplicate detection
+  return crypto.createHash('sha256')
+    .update(normalized)
+    .digest('hex');
 }
 
 function extractKeywords(text) {

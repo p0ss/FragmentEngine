@@ -163,6 +163,30 @@
             display: inline-block;
         }
         .metric-link:hover { text-decoration: underline; }
+        /* Real data = white, Not implemented = grey/disabled */
+        .data-real { color: #fff !important; }
+        .card-not-implemented {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(50%);
+        }
+        .card-not-implemented * {
+            color: #71767b !important;
+        }
+        .card-not-implemented::before {
+            content: 'Coming soon';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.875rem;
+            color: #71767b;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 16px;
+            border-radius: 8px;
+            z-index: 10;
+            font-weight: 500;
+        }
         .grid-2col {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -170,6 +194,7 @@
             margin-bottom: 1.5rem;
         }
         .card {
+            position: relative;
             background: #16181c;
             border: 1px solid #2f3336;
             border-radius: 1rem;
@@ -454,14 +479,15 @@
             const [loading, setLoading] = useState(true);
             const [topics, setTopics] = useState([]);
             const [selectedTopic, setSelectedTopic] = useState('');
+            const [hostFilter, setHostFilter] = useState('');
             const [fragments, setFragments] = useState([]);
             const [platforms, setPlatforms] = useState([]);
             const [metrics, setMetrics] = useState({
                 platforms: 0,
                 fragments: 0,
                 seoAi: 0,
-                subscribers: 12,
-                health: 0
+                subscribers: 0,
+                readability: 8
             });
             const [alerts, setAlerts] = useState([]);
             const [showCreateModal, setShowCreateModal] = useState(false);
@@ -469,8 +495,24 @@
             const [similarFragments, setSimilarFragments] = useState([]);
             const [searchQuery, setSearchQuery] = useState('');
 
+            // Read URL params on mount
             useEffect(() => {
-                loadTopics();
+                const params = new URLSearchParams(window.location.search);
+                const topicParam = params.get('topic');
+                const hostParam = params.get('host');
+
+                if (hostParam) {
+                    setHostFilter(hostParam);
+                }
+
+                if (topicParam) {
+                    // If topic provided via URL, set it directly
+                    setSelectedTopic(topicParam);
+                    setLoading(false);
+                } else {
+                    // Otherwise load topics normally
+                    loadTopics();
+                }
             }, []);
 
             useEffect(() => {
@@ -481,19 +523,52 @@
 
             async function loadTopics() {
                 try {
-                    // Get topics from life_events in content_pages (not fragments)
-                    const lifeData = await tsFacets('content_pages', 'life_events', '', 30);
+                    // Load seed taxonomy for all possible life events
+                    let seedTaxonomy = {};
+                    try {
+                        const resp = await fetch('/data/seed-taxonomies.json');
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            seedTaxonomy = data.lifeEvents || {};
+                        }
+                    } catch (e) {
+                        console.warn('Could not load seed taxonomy:', e);
+                    }
+
+                    // Get discovered topics from Typesense
+                    const lifeData = await tsFacets('content_pages', 'life_events', '', 100);
                     const lifeFacets = lifeData.facet_counts?.find(f => f.field_name === 'life_events')?.counts || [];
 
-                    const topicList = lifeFacets.slice(0, 15).map(t => ({
-                        value: t.value,
-                        label: t.value,
-                        count: t.count
+                    // Build count lookup from discovered topics
+                    const countLookup = {};
+                    lifeFacets.forEach(t => { countLookup[t.value] = t.count; });
+
+                    // Merge: all taxonomy topics + any discovered topics not in taxonomy
+                    const allTopics = new Set([
+                        ...Object.keys(seedTaxonomy),
+                        ...lifeFacets.map(t => t.value)
+                    ]);
+
+                    const topicList = Array.from(allTopics).map(topic => ({
+                        value: topic,
+                        label: topic,
+                        count: countLookup[topic] || 0,
+                        srrs: seedTaxonomy[topic]?.srrs || 0,
+                        inTaxonomy: !!seedTaxonomy[topic],
+                        hasContent: (countLookup[topic] || 0) > 0
                     }));
+
+                    // Sort: topics with content first, then by SRRS score (higher stress = more important)
+                    topicList.sort((a, b) => {
+                        if (a.hasContent !== b.hasContent) return b.hasContent - a.hasContent;
+                        return b.srrs - a.srrs;
+                    });
 
                     setTopics(topicList);
                     if (topicList.length > 0) {
-                        setSelectedTopic(topicList[0].value);
+                        // Select first topic with content
+                        const firstWithContent = topicList.find(t => t.hasContent);
+                        setSelectedTopic(firstWithContent ? firstWithContent.value : topicList[0].value);
                     }
                     setLoading(false);
                 } catch (err) {
@@ -505,58 +580,157 @@
             async function loadTopicData() {
                 setLoading(true);
                 try {
-                    // Get fragments for this topic (search by title/content)
-                    const fragData = await tsSearch('content_fragments', {
-                        q: selectedTopic,
-                        query_by: 'title,content_text',
-                        per_page: 20
+                    // Step 1: Get pages that have this topic in their life_events
+                    // Typesense requires backticks around filter values with spaces
+                    let pageFilter = `life_events:=\`${selectedTopic}\``;
+                    if (hostFilter) {
+                        pageFilter += ` && host:=\`${hostFilter}\``;
+                    }
+
+                    const pagesData = await tsSearch('content_pages', {
+                        q: '*',
+                        query_by: 'title',
+                        filter_by: pageFilter,
+                        include_fields: 'url,title,host',
+                        per_page: 50
                     });
 
-                    const fragmentList = (fragData.hits || []).slice(0, 8).map((hit, i) => ({
-                        id: i,
-                        name: hit.document.title || 'Untitled Fragment',
-                        usedBy: Math.floor(2 + Math.random() * 6),
-                        status: Math.random() > 0.3 ? 'current' : 'draft',
-                        url: hit.document.url
-                    }));
+                    const pageUrls = (pagesData.hits || []).map(hit => hit.document.url);
+
+                    // Step 2: Get fragments for this topic
+                    let fragmentList = [];
+                    let totalFragments = 0;
+
+                    // Helper to get URL path without query params or hash
+                    function getUrlPath(url) {
+                        try {
+                            const u = new URL(url);
+                            return u.origin + u.pathname;
+                        } catch {
+                            return url.split('?')[0].split('#')[0];
+                        }
+                    }
+
+                    // Strategy 1: Search for the topic name directly in fragment content
+                    console.log('Topic search:', { selectedTopic, hostFilter, pageUrlCount: pageUrls.length });
+
+                    let fragData = await tsSearch('content_fragments', {
+                        q: selectedTopic,
+                        query_by: 'title,content_text',
+                        include_fields: 'id,url,title,content_text,reading_level,component_type',
+                        per_page: 100
+                    });
+                    console.log('Topic search results:', fragData.found, 'found,', fragData.hits?.length, 'returned');
+
+                    fragmentList = (fragData.hits || [])
+                        .filter(hit => {
+                            const fragUrl = hit.document.url || '';
+                            // If host filter is set, check URL contains host
+                            if (hostFilter && !fragUrl.includes(hostFilter)) {
+                                return false;
+                            }
+                            return true;
+                        });
+                    console.log('After host filter:', fragmentList.length, 'fragments');
+
+                    // Strategy 2: If we have page URLs and few matches, also match by page URL
+                    if (pageUrls.length > 0 && fragmentList.length < 10) {
+                        const pageUrlPaths = pageUrls.map(u => getUrlPath(u));
+
+                        // Fetch more fragments for URL matching
+                        const moreFragData = await tsSearch('content_fragments', {
+                            q: '*',
+                            query_by: 'title,content_text',
+                            include_fields: 'id,url,title,content_text,reading_level,component_type',
+                            per_page: 500
+                        });
+
+                        const urlMatchedFragments = (moreFragData.hits || [])
+                            .filter(hit => {
+                                const fragUrl = hit.document.url || '';
+                                if (hostFilter && !fragUrl.includes(hostFilter)) {
+                                    return false;
+                                }
+                                const fragPath = getUrlPath(fragUrl);
+                                return pageUrlPaths.some(pagePath =>
+                                    fragPath === pagePath ||
+                                    fragPath.startsWith(pagePath) ||
+                                    pagePath.startsWith(fragPath)
+                                );
+                            });
+
+                        // Combine results, removing duplicates
+                        const existingIds = new Set(fragmentList.map(h => h.document?.id));
+                        urlMatchedFragments.forEach(hit => {
+                            if (!existingIds.has(hit.document?.id)) {
+                                fragmentList.push(hit);
+                            }
+                        });
+                    }
+
+                    // Map to objects
+                    fragmentList = fragmentList
+                        .slice(0, 20)
+                        .map((hit, i) => ({
+                            id: hit.document.id || i,
+                            name: hit.document.title || 'Untitled Fragment',
+                            content_text: hit.document.content_text || '',
+                            reading_level: hit.document.reading_level || 8,
+                            component_type: hit.document.component_type || 'content',
+                            url: hit.document.url,
+                            page_url: (hit.document.url || '').split('#')[0],
+                            expanded: false
+                        }));
+
+                    totalFragments = fragmentList.length;
 
                     setFragments(fragmentList);
 
                     // Get platforms (hosts) using this topic from content_pages
-                    const platformData = await tsFacets('content_pages', 'host', `life_events:=${selectedTopic}`, 20);
+                    const platformData = await tsFacets('content_pages', 'host', `life_events:=\`${selectedTopic}\``, 20);
                     const platformFacets = platformData.facet_counts?.find(f => f.field_name === 'host')?.counts || [];
 
                     setPlatforms(platformFacets.slice(0, 6).map((p, i) => ({
                         id: i,
                         name: p.value,
+                        count: p.count,
                         status: 'synced'
                     })));
 
-                    // Calculate metrics
-                    const avgHealth = 75 + Math.floor(Math.random() * 15);
+                    // Calculate REAL metrics from fragment data
+                    const readingLevels = fragmentList.map(f => f.reading_level).filter(r => r > 0);
+                    const avgReadability = readingLevels.length > 0
+                        ? Math.round(readingLevels.reduce((a, b) => a + b, 0) / readingLevels.length * 10) / 10
+                        : 8;
+
+                    // Count unique hosts across all fragments for "usedBy" calculation
+                    const uniqueHosts = new Set(platformFacets.map(p => p.value));
+
                     setMetrics({
                         platforms: platformFacets.length,
                         fragments: fragmentList.length,
-                        seoAi: 70 + Math.floor(Math.random() * 20),
-                        subscribers: 8 + Math.floor(Math.random() * 10),
-                        health: avgHealth
+                        pages: pageUrls.length,
+                        seoAi: Math.min(100, Math.round((12 - avgReadability) * 10)), // Lower reading level = better SEO
+                        subscribers: platformFacets.length,
+                        readability: avgReadability
                     });
 
-                    // Generate alerts
+                    // Generate alerts based on real data
                     const newAlerts = [];
-                    if (Math.random() > 0.5) {
-                        newAlerts.push({ type: 'info', message: 'Fragment update requested by servicesaustralia.gov.au' });
+                    if (avgReadability > 10) {
+                        newAlerts.push({ type: 'warning', message: `High reading level (Grade ${avgReadability}) - consider simplifying content` });
                     }
-                    if (Math.random() > 0.6) {
-                        newAlerts.push({ type: 'warning', message: 'Content divergence detected across 2 platforms' });
+                    if (platformFacets.length > 3) {
+                        newAlerts.push({ type: 'info', message: `Topic used across ${platformFacets.length} platforms` });
                     }
-                    if (Math.random() > 0.7) {
-                        newAlerts.push({ type: 'info', message: 'New subscriber: dss.gov.au' });
+                    if (fragmentList.length > 20) {
+                        newAlerts.push({ type: 'info', message: `${fragmentList.length} fragments found - consider consolidation` });
                     }
                     setAlerts(newAlerts);
 
                 } catch (err) {
                     console.error('Error loading topic data:', err);
+                    alert('Error loading topic data: ' + err.message);
                 }
                 setLoading(false);
             }
@@ -572,9 +746,11 @@
                         query_by: 'title,content_text',
                         per_page: 3
                     });
+                    // Use Typesense text_match score to show relevance
+                    const maxScore = data.hits?.[0]?.text_match || 1;
                     const similar = (data.hits || []).map(hit => ({
                         name: hit.document.title || 'Untitled',
-                        match: Math.floor(50 + Math.random() * 40)
+                        match: Math.min(95, Math.round((hit.text_match / maxScore) * 90 + 5))
                     }));
                     setSimilarFragments(similar);
                 } catch (err) {
@@ -591,7 +767,7 @@
             async function handleSearch(e) {
                 e.preventDefault();
                 if (!searchQuery.trim()) return;
-                window.location.href = `multimode-interface.html?q=${encodeURIComponent(searchQuery)}`;
+                window.location.href = `dashboard-unified.html?search=${encodeURIComponent(searchQuery)}`;
             }
 
             const subscribers = [
@@ -610,10 +786,24 @@
                         </div>
                         <div className="topic-selector">
                             <select value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)}>
-                                {topics.map(t => (
-                                    <option key={t.value} value={t.value}>{t.label}</option>
-                                ))}
+                                <optgroup label="Topics with Content">
+                                    {topics.filter(t => t.hasContent).map(t => (
+                                        <option key={t.value} value={t.value}>
+                                            {t.label} ({t.count} pages){t.srrs > 0 ? ` • SRRS ${t.srrs}` : ''}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Coverage Gaps (No Content)">
+                                    {topics.filter(t => !t.hasContent && t.inTaxonomy).map(t => (
+                                        <option key={t.value} value={t.value} style={{color: '#c62828'}}>
+                                            ⚠ {t.label} (0 pages){t.srrs > 0 ? ` • SRRS ${t.srrs}` : ''}
+                                        </option>
+                                    ))}
+                                </optgroup>
                             </select>
+                            <div style={{fontSize: '0.7rem', color: '#71767b', marginTop: '0.25rem', padding: '0 0.5rem'}}>
+                                {topics.filter(t => t.hasContent).length} topics with content • {topics.filter(t => !t.hasContent && t.inTaxonomy).length} gaps
+                            </div>
                         </div>
 
                         <nav className="nav-section">
@@ -638,6 +828,10 @@
 
                         <nav className="nav-section">
                             <div className="nav-label">Tools</div>
+                            <a href="dashboard-unified.html" className="nav-item">
+                                <span className="material-icons">search</span>
+                                Content Discovery
+                            </a>
                             <a href="multimode-interface.html" className="nav-item">
                                 <span className="material-icons">smart_toy</span>
                                 AI Assistant
@@ -654,7 +848,18 @@
                             <div className="header-left">
                                 <div>
                                     <h1>Topic Dashboard</h1>
-                                    <div className="header-subtitle">{selectedTopic}</div>
+                                    <div className="header-subtitle">
+                                        {hostFilter && (
+                                            <span style={{marginRight: '0.5rem'}}>
+                                                <a
+                                                    href={`dashboard-platform.html?host=${encodeURIComponent(hostFilter)}`}
+                                                    style={{color: '#1d9bf0', textDecoration: 'none'}}
+                                                >{hostFilter}</a>
+                                                <span style={{margin: '0 0.5rem', color: '#71767b'}}>/</span>
+                                            </span>
+                                        )}
+                                        {selectedTopic}
+                                    </div>
                                 </div>
                             </div>
                             <div className="header-actions">
@@ -686,15 +891,16 @@
                                 </div>
                             ) : (
                                 <>
-                                    <form className="search-bar" onSubmit={handleSearch}>
-                                        <span className="material-icons" style={{color: '#71767b'}}>search</span>
+                                    <form className="search-bar" onSubmit={handleSearch} style={{opacity: 0.7}}>
+                                        <span className="material-icons" style={{color: '#71767b'}}>open_in_new</span>
                                         <input
                                             type="text"
-                                            placeholder="Search topic content... (AI assisted)"
+                                            placeholder="Search opens AI chat interface..."
                                             value={searchQuery}
                                             onChange={e => setSearchQuery(e.target.value)}
+                                            style={{color: '#71767b'}}
                                         />
-                                        <span className="ai-badge">AI</span>
+                                        <span className="ai-badge" style={{background: '#2f3336', color: '#71767b'}}>Opens Chat</span>
                                     </form>
 
                                     <div className="metrics-grid">
@@ -719,43 +925,110 @@
                                             <a href="#" className="metric-link">View all</a>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">Health</div>
-                                            <div className="metric-value">{metrics.health}%</div>
+                                            <div className="metric-label">Readability</div>
+                                            <div className="metric-value" style={{color: metrics.readability <= 8 ? '#2e7d32' : metrics.readability <= 10 ? '#f57c00' : '#c62828'}}>
+                                                Grade {metrics.readability}
+                                            </div>
+                                            <span style={{fontSize: '0.75rem', color: '#71767b'}}>
+                                                {metrics.readability <= 6 ? 'Easy' : metrics.readability <= 8 ? 'Standard' : metrics.readability <= 10 ? 'Moderate' : 'Complex'}
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div className="grid-2col">
                                         <div className="card">
                                             <div className="card-header">
-                                                <span className="card-title">Fragments</span>
+                                                <span className="card-title">
+                                                    Fragments
+                                                    <span style={{marginLeft: '0.5rem', fontSize: '0.75rem', color: '#71767b'}}>
+                                                        ({metrics.fragments} from {metrics.pages || 0} pages)
+                                                    </span>
+                                                </span>
                                                 <button className="btn btn-secondary" style={{padding: '0.375rem 0.75rem'}} onClick={() => setShowCreateModal(true)}>
                                                     <span className="material-icons" style={{fontSize: '1rem'}}>add</span>
                                                     Add new
                                                 </button>
                                             </div>
                                             <div className="card-body">
+                                                {fragments.length === 0 ? (
+                                                    <div style={{textAlign: 'center', padding: '2rem', color: '#71767b'}}>
+                                                        No content fragments found for this topic
+                                                    </div>
+                                                ) : (
                                                 <ul className="fragment-list">
                                                     {fragments.map(fragment => (
-                                                        <li key={fragment.id} className="fragment-item">
-                                                            <div className="fragment-checkbox">
-                                                                <span className="material-icons" style={{opacity: 0}}>check</span>
-                                                            </div>
-                                                            <div className="fragment-info">
-                                                                <div className="fragment-name">{fragment.name}</div>
-                                                                <div className="fragment-meta">
-                                                                    <span>Used by {fragment.usedBy} platforms</span>
-                                                                    <span className={`fragment-status ${fragment.status}`}>
-                                                                        {fragment.status === 'current' ? 'Current' : 'Draft'}
+                                                        <li key={fragment.id} className="fragment-item" style={{flexDirection: 'column', alignItems: 'stretch'}}>
+                                                            <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+                                                                <div className="fragment-checkbox">
+                                                                    <span className="material-icons" style={{fontSize: '1rem', color: fragment.component_type === 'form' ? '#1976d2' : fragment.component_type === 'checklist' ? '#7b1fa2' : '#71767b'}}>
+                                                                        {fragment.component_type === 'form' ? 'description' : fragment.component_type === 'checklist' ? 'checklist' : 'article'}
                                                                     </span>
                                                                 </div>
+                                                                <div
+                                                                    className="fragment-info"
+                                                                    style={{flex: 1, cursor: 'pointer'}}
+                                                                    onClick={() => window.location.href = `dashboard-content.html?page_url=${encodeURIComponent(fragment.page_url)}`}
+                                                                    title="View content page"
+                                                                >
+                                                                    <div className="fragment-name" style={{color: '#1d9bf0'}}>{fragment.name}</div>
+                                                                    <div className="fragment-meta">
+                                                                        <span
+                                                                            className="readability-badge"
+                                                                            style={{
+                                                                                padding: '0.125rem 0.5rem',
+                                                                                borderRadius: '0.75rem',
+                                                                                fontSize: '0.7rem',
+                                                                                fontWeight: 500,
+                                                                                backgroundColor: fragment.reading_level <= 6 ? '#e8f5e9' : fragment.reading_level <= 8 ? '#fff3e0' : fragment.reading_level <= 10 ? '#fff8e1' : '#ffebee',
+                                                                                color: fragment.reading_level <= 6 ? '#2e7d32' : fragment.reading_level <= 8 ? '#ef6c00' : fragment.reading_level <= 10 ? '#f57c00' : '#c62828'
+                                                                            }}
+                                                                        >
+                                                                            Grade {fragment.reading_level}
+                                                                        </span>
+                                                                        <span style={{color: '#71767b', fontSize: '0.75rem'}}>{fragment.component_type}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="fragment-actions" style={{display: 'flex', gap: '0.5rem'}}>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setFragments(fragments.map(f => f.id === fragment.id ? {...f, expanded: !f.expanded} : f)); }}
+                                                                        style={{background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem'}}
+                                                                        title={fragment.expanded ? 'Collapse' : 'Expand content'}
+                                                                    >
+                                                                        <span className="material-icons" style={{fontSize: '1.25rem', color: '#536471'}}>
+                                                                            {fragment.expanded ? 'expand_less' : 'expand_more'}
+                                                                        </span>
+                                                                    </button>
+                                                                    <a href={fragment.url} target="_blank" className="fragment-action" style={{fontSize: '0.75rem'}} onClick={e => e.stopPropagation()}>View</a>
+                                                                </div>
                                                             </div>
-                                                            <div className="fragment-actions">
-                                                                <a href="#" className="fragment-action">Add to page</a>
-                                                            </div>
+                                                            {fragment.expanded && fragment.content_text && (
+                                                                <div style={{
+                                                                    marginTop: '0.75rem',
+                                                                    padding: '0.75rem',
+                                                                    backgroundColor: '#f8f9fa',
+                                                                    borderRadius: '0.5rem',
+                                                                    fontSize: '0.8rem',
+                                                                    lineHeight: 1.5,
+                                                                    color: '#333',
+                                                                    maxHeight: '200px',
+                                                                    overflow: 'auto'
+                                                                }}>
+                                                                    {fragment.content_text.length > 500
+                                                                        ? fragment.content_text.substring(0, 500) + '...'
+                                                                        : fragment.content_text}
+                                                                </div>
+                                                            )}
                                                         </li>
                                                     ))}
                                                 </ul>
+                                                )}
                                             </div>
+                                            <a
+                                                href={`dashboard-unified.html?topic=${encodeURIComponent(selectedTopic)}${hostFilter ? '&platform=' + encodeURIComponent(hostFilter) : ''}`}
+                                                className="view-all"
+                                            >
+                                                View all in search
+                                            </a>
                                         </div>
 
                                         <div>
@@ -765,18 +1038,24 @@
                                                 </div>
                                                 <div className="card-body">
                                                     {platforms.map(platform => (
-                                                        <div key={platform.id} className="platform-using">
+                                                        <div
+                                                            key={platform.id}
+                                                            className="platform-using"
+                                                            style={{cursor: 'pointer'}}
+                                                            onClick={() => window.location.href = `dashboard-platform.html?host=${encodeURIComponent(platform.name)}`}
+                                                            title={`View ${platform.name} platform`}
+                                                        >
                                                             <div className="platform-icon">
                                                                 <span className="material-icons">language</span>
                                                             </div>
-                                                            <span className="platform-name">{platform.name}</span>
-                                                            <span className="platform-status">{platform.status}</span>
+                                                            <span className="platform-name" style={{color: '#1d9bf0'}}>{platform.name}</span>
+                                                            <span className="platform-status">{platform.count} pages</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
 
-                                            <div className="card">
+                                            <div className="card card-not-implemented">
                                                 <div className="card-header">
                                                     <span className="card-title">Subscribers</span>
                                                     <a href="#" className="contact-link">View all ({metrics.subscribers})</a>

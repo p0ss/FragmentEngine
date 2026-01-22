@@ -73,7 +73,8 @@
       text-transform: uppercase;
       margin-bottom: 6px;
     }
-    .site-box input {
+    .site-box input,
+    .site-box select {
       width: 100%;
       margin-bottom: 8px;
     }
@@ -380,13 +381,17 @@
     <div class="compare-row">
       <div class="site-box" id="site-a-box">
         <label>Site A</label>
-        <input id="site_a" placeholder="e.g., servicesaustralia.gov.au" value="servicesaustralia.gov.au" />
+        <select id="site_a">
+          <option value="">Loading hosts...</option>
+        </select>
         <div class="filter-info" id="site-a-filters"></div>
       </div>
       <div class="vs">vs</div>
       <div class="site-box" id="site-b-box">
         <label>Site B (optional)</label>
-        <input id="site_b" placeholder="Leave empty for single-site analysis" value="" />
+        <select id="site_b">
+          <option value="">Loading hosts...</option>
+        </select>
         <div class="filter-info" id="site-b-filters"></div>
       </div>
     </div>
@@ -660,6 +665,43 @@
 
       pairs.sort((x, y) => y.score - x.score);
       return pairs.slice(0, maxPairs);
+    }
+
+    // Host dropdown UI
+    let hostFacets = [];
+    async function loadHosts() {
+      try {
+        const data = await tsFacets('content_pages', 'host', 50);
+        const facets = data.facet_counts?.find(f => f.field_name === 'host')?.counts || [];
+        hostFacets = facets.sort((a, b) => b.count - a.count);
+        renderHostDropdowns();
+      } catch (e) {
+        console.error('Failed to load hosts:', e);
+        document.getElementById('site_a').innerHTML = '<option value="">Failed to load</option>';
+        document.getElementById('site_b').innerHTML = '<option value="">Failed to load</option>';
+      }
+    }
+
+    function renderHostDropdowns() {
+      const siteA = document.getElementById('site_a');
+      const siteB = document.getElementById('site_b');
+
+      if (!hostFacets.length) {
+        siteA.innerHTML = '<option value="">No hosts found</option>';
+        siteB.innerHTML = '<option value="">No hosts found</option>';
+        return;
+      }
+
+      // Site A - required, first host selected by default
+      siteA.innerHTML = hostFacets.map((f, i) =>
+        `<option value="${escHtml(f.value)}" ${i === 0 ? 'selected' : ''}>${escHtml(f.value)} (${f.count} pages)</option>`
+      ).join('');
+
+      // Site B - optional, empty first option for single-site mode
+      siteB.innerHTML = `<option value="">(Single-site analysis)</option>` +
+        hostFacets.map(f =>
+          `<option value="${escHtml(f.value)}">${escHtml(f.value)} (${f.count} pages)</option>`
+        ).join('');
     }
 
     // Category filter UI
@@ -961,6 +1003,7 @@
     document.getElementById('search_query').addEventListener('keydown', e => { if (e.key === 'Enter') runComparison(); });
 
     // Initialize
+    loadHosts();
     loadCategories();
   </script>
 </body>

@@ -137,6 +137,31 @@
             font-weight: 700;
             color: #fff;
         }
+        /* Real data = white, Not implemented = grey/disabled */
+        .data-real { color: #fff !important; }
+        .card-not-implemented {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(50%);
+        }
+        .card-not-implemented * {
+            color: #71767b !important;
+        }
+        .card-not-implemented::before {
+            content: 'Coming soon';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.875rem;
+            color: #71767b;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 16px;
+            border-radius: 8px;
+            z-index: 10;
+            font-weight: 500;
+        }
+        .card { position: relative; }
         .grid-2col {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -365,6 +390,7 @@
             const [loading, setLoading] = useState(true);
             const [pages, setPages] = useState([]);
             const [selectedPage, setSelectedPage] = useState(null);
+            const [urlParamPage, setUrlParamPage] = useState(null);
             const [fragments, setFragments] = useState([]);
             const [changes, setChanges] = useState([]);
             const [metrics, setMetrics] = useState({
@@ -376,8 +402,18 @@
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
+            // Read URL params on mount
             useEffect(() => {
-                loadPages();
+                const params = new URLSearchParams(window.location.search);
+                const pageUrlParam = params.get('page_url');
+
+                if (pageUrlParam) {
+                    // Load specific page from URL param
+                    setUrlParamPage(pageUrlParam);
+                    loadPageByUrl(pageUrlParam);
+                } else {
+                    loadPages();
+                }
             }, []);
 
             useEffect(() => {
@@ -421,24 +457,157 @@
                 }
             }
 
+            async function loadPageByUrl(pageUrl) {
+                try {
+                    console.log('Loading page by URL:', pageUrl);
+
+                    // Normalize URL - strip hash and query params for page lookup
+                    let normalizedUrl = pageUrl;
+                    try {
+                        const u = new URL(pageUrl);
+                        normalizedUrl = u.origin + u.pathname;
+                    } catch (e) {
+                        normalizedUrl = pageUrl.split('?')[0].split('#')[0];
+                    }
+                    console.log('Normalized URL for lookup:', normalizedUrl);
+
+                    // Search for page by URL (with backticks for Typesense)
+                    const data = await tsSearch('content_pages', {
+                        q: '*',
+                        query_by: 'title',
+                        filter_by: `url:=\`${normalizedUrl}\``,
+                        per_page: 1
+                    });
+
+                    if (data.hits && data.hits.length > 0) {
+                        const hit = data.hits[0];
+                        const page = {
+                            id: hit.document.id,
+                            title: hit.document.title || 'Untitled Page',
+                            url: hit.document.url,
+                            host: hit.document.host
+                        };
+                        console.log('Found page in content_pages:', page.title);
+                        setSelectedPage(page);
+                        setPages([page]);
+                    } else {
+                        console.log('Page not found in content_pages, creating synthetic entry');
+                        // Page not in content_pages, create a synthetic entry from URL
+                        const host = new URL(normalizedUrl).hostname;
+                        const page = {
+                            id: normalizedUrl,
+                            title: normalizedUrl.split('/').pop() || 'Page',
+                            url: normalizedUrl,
+                            host: host
+                        };
+                        setSelectedPage(page);
+                        setPages([page]);
+                    }
+                } catch (err) {
+                    console.error('Error loading page by URL:', err);
+                    // Fallback: create synthetic entry
+                    try {
+                        const host = new URL(pageUrl).hostname;
+                        const page = {
+                            id: pageUrl,
+                            title: pageUrl.split('/').pop() || 'Page',
+                            url: pageUrl,
+                            host: host
+                        };
+                        setSelectedPage(page);
+                        setPages([page]);
+                    } catch (urlErr) {
+                        console.error('Invalid URL:', pageUrl);
+                    }
+                }
+            }
+
             async function loadPageData() {
                 setLoading(true);
                 try {
-                    // Search for fragments related to this page
-                    const fragData = await tsSearch('content_fragments', {
-                        q: selectedPage.title,
+                    // Search for fragments related to this page - include reading_level and content_hash
+                    // If we have a URL param, filter by page_url for exact match
+                    const fragQuery = {
+                        q: '*',
                         query_by: 'title,content_text',
-                        per_page: 5
-                    });
+                        include_fields: 'id,url,title,content_text,reading_level,content_hash,last_seen_at,page_url,page_hierarchy,hierarchy_lvl0,hierarchy_lvl1,hierarchy_lvl2,hierarchy_lvl3,component_type',
+                        per_page: 100
+                    };
 
-                    const fragmentList = (fragData.hits || []).slice(0, 3).map((hit, i) => ({
-                        id: i,
-                        name: hit.document.title || 'Fragment',
-                        lastUpdated: getRandomTimeAgo(),
-                        hasUpdate: Math.random() > 0.6
-                    }));
+                    // Get the base page URL (without hash) to find fragments on this page
+                    const baseUrl = (urlParamPage || selectedPage.url || '').split('#')[0];
+
+                    // If we have a base URL, search title for keywords from URL path
+                    if (baseUrl) {
+                        try {
+                            const urlPath = new URL(baseUrl).pathname;
+                            const keywords = urlPath.split('/').filter(p => p && p.length > 3).slice(-2).join(' ');
+                            if (keywords) {
+                                fragQuery.q = keywords;
+                            }
+                        } catch (e) {}
+                    } else if (selectedPage.title) {
+                        fragQuery.q = selectedPage.title;
+                    }
+
+                    const fragData = await tsSearch('content_fragments', fragQuery);
+
+                    // Helper to get URL path without query params or hash
+                    function getUrlPath(url) {
+                        try {
+                            const u = new URL(url);
+                            return u.origin + u.pathname;
+                        } catch {
+                            return url.split('?')[0].split('#')[0];
+                        }
+                    }
+
+                    // Filter client-side to match fragments from this specific page URL
+                    // Must strip both hash AND query params for comparison
+                    const baseUrlPath = getUrlPath(baseUrl);
+                    const fragmentList = (fragData.hits || [])
+                        .filter(hit => {
+                            if (!baseUrl) return true;
+                            const fragUrlPath = getUrlPath(hit.document.url || '');
+                            // Match if URL paths match or one contains the other
+                            return fragUrlPath === baseUrlPath ||
+                                   fragUrlPath.startsWith(baseUrlPath) ||
+                                   baseUrlPath.startsWith(fragUrlPath);
+                        })
+                        .slice(0, 100)
+                        .map((hit, i) => ({
+                            id: hit.document.id || i,
+                            name: hit.document.title || 'Fragment',
+                            reading_level: hit.document.reading_level || 8,
+                            content_hash: hit.document.content_hash,
+                            lastUpdated: hit.document.last_seen_at ? formatTimeAgo(hit.document.last_seen_at) : 'Unknown',
+                            content_text: hit.document.content_text || '',
+                            url: hit.document.url,
+                            expanded: false,
+                            page_hierarchy: hit.document.page_hierarchy || [],
+                            hierarchy_lvl0: hit.document.hierarchy_lvl0 || '',
+                            hierarchy_lvl1: hit.document.hierarchy_lvl1 || '',
+                            hierarchy_lvl2: hit.document.hierarchy_lvl2 || '',
+                            hierarchy_lvl3: hit.document.hierarchy_lvl3 || '',
+                            component_type: hit.document.component_type || 'text'
+                        }));
 
                     setFragments(fragmentList);
+
+                    // Calculate real readability from fragments
+                    const readingLevels = fragmentList.map(f => f.reading_level).filter(r => r > 0);
+                    const avgReadability = readingLevels.length > 0
+                        ? Math.round(readingLevels.reduce((a, b) => a + b, 0) / readingLevels.length * 10) / 10
+                        : 8;
+
+                    // Detect duplicates by content_hash
+                    const hashCounts = {};
+                    fragmentList.forEach(f => {
+                        if (f.content_hash) {
+                            hashCounts[f.content_hash] = (hashCounts[f.content_hash] || 0) + 1;
+                        }
+                    });
+                    const duplicateCount = Object.values(hashCounts).filter(c => c > 1).length;
 
                     // Generate recent changes
                     setChanges([
@@ -448,12 +617,14 @@
                         { type: 'edit', text: 'Fixed accessibility issues', time: '1 week ago' }
                     ]);
 
-                    // Update metrics with some randomness
+                    // Update metrics with real readability data
+                    // Health = inverse of reading complexity (lower grade = more accessible = higher health)
+                    const readabilityScore = Math.round(100 - (avgReadability - 1) * 8);
                     setMetrics({
-                        health: 80 + Math.floor(Math.random() * 15),
-                        seoAi: 85 + Math.floor(Math.random() * 12),
-                        views: (10 + Math.floor(Math.random() * 20)).toFixed(1) + 'k',
-                        subscribers: 5 + Math.floor(Math.random() * 10)
+                        health: Math.max(50, Math.min(98, readabilityScore)),
+                        readability: avgReadability,
+                        duplicates: duplicateCount,
+                        fragments: fragmentList.length
                     });
 
                 } catch (err) {
@@ -462,9 +633,24 @@
                 setLoading(false);
             }
 
-            function getRandomTimeAgo() {
-                const times = ['Just now', '1 hour ago', '3 hours ago', '1 day ago', '2 days ago', '1 week ago'];
-                return times[Math.floor(Math.random() * times.length)];
+            function formatTimeAgo(timestamp) {
+                if (!timestamp) return 'Unknown';
+                const now = Date.now();
+                const diff = now - timestamp;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+                if (minutes < 60) return minutes <= 1 ? 'Just now' : `${minutes} minutes ago`;
+                if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+                if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+                return `${Math.floor(days / 7)} week${Math.floor(days / 7) > 1 ? 's' : ''} ago`;
+            }
+
+            function getReadabilityColor(level) {
+                if (level <= 6) return { bg: '#e8f5e9', text: '#2e7d32', label: 'Easy' };
+                if (level <= 8) return { bg: '#fff3e0', text: '#ef6c00', label: 'Moderate' };
+                if (level <= 10) return { bg: '#fff8e1', text: '#f57c00', label: 'Advanced' };
+                return { bg: '#ffebee', text: '#c62828', label: 'Complex' };
             }
 
             function renderChart() {
@@ -554,6 +740,10 @@
 
                         <nav className="nav-section">
                             <div className="nav-label">Tools</div>
+                            <a href="dashboard-unified.html" className="nav-item">
+                                <span className="material-icons">search</span>
+                                Content Discovery
+                            </a>
                             <a href="multimode-interface.html" className="nav-item">
                                 <span className="material-icons">smart_toy</span>
                                 AI Assistant
@@ -572,9 +762,7 @@
                                     <div className="breadcrumb">
                                         <a href="dashboard-portfolio.html">Portfolio</a>
                                         <span>/</span>
-                                        <a href="dashboard-platform.html">{selectedPage?.host || 'Platform'}</a>
-                                        <span>/</span>
-                                        <a href="dashboard-topic.html">Topic</a>
+                                        <a href={`dashboard-platform.html?host=${encodeURIComponent(selectedPage?.host || '')}`}>{selectedPage?.host || 'Platform'}</a>
                                         <span>/</span>
                                         <span>Content</span>
                                     </div>
@@ -607,20 +795,24 @@
                                 <>
                                     <div className="metrics-grid">
                                         <div className="metric-card">
-                                            <div className="metric-label">Health</div>
+                                            <div className="metric-label">Accessibility Score</div>
                                             <div className="metric-value">{metrics.health}%</div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">SEO/AI Status</div>
-                                            <div className="metric-value">{metrics.seoAi}%</div>
+                                            <div className="metric-label">Reading Level</div>
+                                            <div className="metric-value" style={{color: getReadabilityColor(metrics.readability || 8).text}}>
+                                                Grade {metrics.readability || 8}
+                                            </div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">Views</div>
-                                            <div className="metric-value">{metrics.views}</div>
+                                            <div className="metric-label">Fragments</div>
+                                            <div className="metric-value">{metrics.fragments || 0}</div>
                                         </div>
                                         <div className="metric-card">
-                                            <div className="metric-label">Subscribers</div>
-                                            <div className="metric-value">{metrics.subscribers}</div>
+                                            <div className="metric-label">Duplicates</div>
+                                            <div className="metric-value" style={{color: (metrics.duplicates || 0) > 0 ? '#f57c00' : '#4caf50'}}>
+                                                {metrics.duplicates || 0}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -631,32 +823,69 @@
                                             </div>
                                             <div className="card-body">
                                                 {fragments.map(fragment => (
-                                                    <div key={fragment.id} className="fragment-on-page">
-                                                        <div className="fragment-icon">
-                                                            <span className="material-icons">extension</span>
-                                                        </div>
-                                                        <div className="fragment-info">
-                                                            <div className="fragment-name">{fragment.name}</div>
-                                                            <div className="fragment-meta">
-                                                                Last updated: {fragment.lastUpdated}
-                                                                {fragment.hasUpdate && (
-                                                                    <span className="fragment-update" style={{marginLeft: '0.5rem'}}>
-                                                                        Update available
+                                                    <div key={fragment.id} className="fragment-on-page" style={{flexDirection: 'column', alignItems: 'stretch'}}>
+                                                        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                                                            <div className="fragment-icon">
+                                                                <span className="material-icons">extension</span>
+                                                            </div>
+                                                            <div className="fragment-info" style={{flex: 1}}>
+                                                                <div className="fragment-name">
+                                                                    {fragment.name}
+                                                                    <span style={{
+                                                                        marginLeft: '0.5rem',
+                                                                        padding: '2px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '0.7rem',
+                                                                        backgroundColor: getReadabilityColor(fragment.reading_level).bg,
+                                                                        color: getReadabilityColor(fragment.reading_level).text
+                                                                    }}>
+                                                                        Grade {fragment.reading_level}
                                                                     </span>
+                                                                </div>
+                                                                <div className="fragment-meta">
+                                                                    Last updated: {fragment.lastUpdated}
+                                                                    {fragment.content_hash && (
+                                                                        <span style={{marginLeft: '0.5rem', color: '#71767b', fontSize: '0.7rem'}}>
+                                                                            #{fragment.content_hash.slice(0, 8)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="fragment-actions">
+                                                                <button
+                                                                    className="fragment-action-btn"
+                                                                    onClick={() => setFragments(fragments.map(f => f.id === fragment.id ? {...f, expanded: !f.expanded} : f))}
+                                                                >
+                                                                    {fragment.expanded ? 'Hide' : 'Preview'}
+                                                                </button>
+                                                                {fragment.url && (
+                                                                    <a href={fragment.url} target="_blank" className="fragment-action-btn primary" style={{textDecoration: 'none'}}>View</a>
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <div className="fragment-actions">
-                                                            <button className="fragment-action-btn">Copy</button>
-                                                            <button className="fragment-action-btn primary">Update</button>
-                                                            <button className="fragment-action-btn">Adapt</button>
-                                                        </div>
+                                                        {fragment.expanded && fragment.content_text && (
+                                                            <div style={{
+                                                                marginTop: '0.75rem',
+                                                                padding: '0.75rem',
+                                                                backgroundColor: '#f8f9fa',
+                                                                borderRadius: '0.5rem',
+                                                                fontSize: '0.8rem',
+                                                                lineHeight: 1.5,
+                                                                color: '#333',
+                                                                maxHeight: '200px',
+                                                                overflow: 'auto'
+                                                            }}>
+                                                                {fragment.content_text.length > 500
+                                                                    ? fragment.content_text.substring(0, 500) + '...'
+                                                                    : fragment.content_text}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        <div className="card">
+                                        <div className="card card-not-implemented">
                                             <div className="card-header">
                                                 <span className="card-title">Recent Changes</span>
                                             </div>
@@ -678,7 +907,7 @@
                                             </div>
                                         </div>
 
-                                        <div className="card">
+                                        <div className="card card-not-implemented">
                                             <div className="card-header">
                                                 <span className="card-title">SEO/AI Status</span>
                                             </div>
@@ -689,7 +918,7 @@
                                                 </div>
                                                 <div className="seo-item">
                                                     <span className="seo-label">AI Accuracy</span>
-                                                    <span className="seo-value">{metrics.seoAi - 4}%</span>
+                                                    <span className="seo-value">85%</span>
                                                 </div>
                                                 <div className="seo-item">
                                                     <span className="seo-label">Top Query</span>
@@ -697,7 +926,7 @@
                                                 </div>
                                                 <div className="seo-item">
                                                     <span className="seo-label">Monthly Traffic</span>
-                                                    <span className="seo-value">{metrics.views}</span>
+                                                    <span className="seo-value">12.5k</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -777,6 +1006,101 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Page Reconstruction Section */}
+                                    <div className="card" style={{marginTop: '1.5rem'}}>
+                                        <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                            <span className="card-title">
+                                                <span className="material-icons" style={{verticalAlign: 'middle', marginRight: '0.5rem'}}>article</span>
+                                                Page Content Reconstruction
+                                            </span>
+                                            <span style={{fontSize: '0.75rem', color: '#71767b'}}>
+                                                {fragments.length} fragments
+                                            </span>
+                                        </div>
+                                        <div className="card-body" style={{padding: '1.5rem'}}>
+                                            {fragments.length === 0 ? (
+                                                <div style={{textAlign: 'center', color: '#71767b', padding: '2rem'}}>
+                                                    No fragments found for this page
+                                                </div>
+                                            ) : (
+                                                <div className="page-reconstruction" style={{
+                                                    backgroundColor: '#fff',
+                                                    borderRadius: '0.5rem',
+                                                    padding: '2rem',
+                                                    color: '#1a1a1a',
+                                                    lineHeight: 1.7,
+                                                    maxHeight: '600px',
+                                                    overflowY: 'auto'
+                                                }}>
+                                                    {/* Sort fragments by hierarchy depth, then by title */}
+                                                    {[...fragments]
+                                                        .sort((a, b) => {
+                                                            // Sort by hierarchy depth (more specific = later)
+                                                            const depthA = (a.hierarchy_lvl3 ? 3 : a.hierarchy_lvl2 ? 2 : a.hierarchy_lvl1 ? 1 : 0);
+                                                            const depthB = (b.hierarchy_lvl3 ? 3 : b.hierarchy_lvl2 ? 2 : b.hierarchy_lvl1 ? 1 : 0);
+                                                            if (depthA !== depthB) return depthA - depthB;
+                                                            return a.name.localeCompare(b.name);
+                                                        })
+                                                        .map((fragment, idx) => {
+                                                            const depth = fragment.hierarchy_lvl3 ? 3 : fragment.hierarchy_lvl2 ? 2 : fragment.hierarchy_lvl1 ? 1 : 0;
+                                                            const HeadingTag = depth === 0 ? 'h2' : depth === 1 ? 'h3' : depth === 2 ? 'h4' : 'h5';
+                                                            const headingStyle = {
+                                                                fontSize: depth === 0 ? '1.5rem' : depth === 1 ? '1.25rem' : depth === 2 ? '1.1rem' : '1rem',
+                                                                fontWeight: depth <= 1 ? 600 : 500,
+                                                                marginTop: idx === 0 ? 0 : '1.5rem',
+                                                                marginBottom: '0.75rem',
+                                                                color: '#1a1a1a',
+                                                                borderBottom: depth === 0 ? '2px solid #e5e7eb' : 'none',
+                                                                paddingBottom: depth === 0 ? '0.5rem' : 0
+                                                            };
+
+                                                            return (
+                                                                <div key={fragment.id} style={{marginBottom: '1rem'}}>
+                                                                    <HeadingTag style={headingStyle}>
+                                                                        {fragment.name}
+                                                                        <span style={{
+                                                                            marginLeft: '0.75rem',
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '0.65rem',
+                                                                            fontWeight: 400,
+                                                                            backgroundColor: getReadabilityColor(fragment.reading_level).bg,
+                                                                            color: getReadabilityColor(fragment.reading_level).text
+                                                                        }}>
+                                                                            Grade {fragment.reading_level}
+                                                                        </span>
+                                                                        {fragment.component_type && fragment.component_type !== 'text' && (
+                                                                            <span style={{
+                                                                                marginLeft: '0.5rem',
+                                                                                padding: '2px 8px',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '0.65rem',
+                                                                                fontWeight: 400,
+                                                                                backgroundColor: '#e3f2fd',
+                                                                                color: '#1565c0'
+                                                                            }}>
+                                                                                {fragment.component_type}
+                                                                            </span>
+                                                                        )}
+                                                                    </HeadingTag>
+                                                                    {fragment.content_text && (
+                                                                        <div style={{
+                                                                            fontSize: '0.95rem',
+                                                                            color: '#374151',
+                                                                            whiteSpace: 'pre-wrap'
+                                                                        }}>
+                                                                            {fragment.content_text}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    }
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </>
